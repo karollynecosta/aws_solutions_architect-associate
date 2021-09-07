@@ -197,3 +197,282 @@ Dedicated Instances: instances running on hardware that's dedicated to you
 					 no control over instance placement, can move hardware afterstop/start
 			
 ```
+
+Private x Public IP (IPv4):
+```
+IPv4: 1.160.1.240
+	is still the most common format used online
+	allows 3.7 bilions of options
+
+Private Connectios can communicate with the public hosts between Internet Gateway(public) >> www
+Public IP: means themachine can be identified on the internet (WWW)
+		   Must be unique across the whole web
+		   Can be geo-located easily
+
+Private IP: means the machine can only be identified on a private network only
+			the IP must be unique across the private network
+			Machines connect to WWW using an internet gateway (proxy)
+			Only a specified range of IPs can be used as private IP
+
+Elastic IP: when you stop and then start an EC2, it can change its public IP
+			if you need a FIXED PUBLIC IP for your instance == Elastic IP
+			IPv4
+			Mask the failure of an instance or  softwareby rapidly remapping the address to another instance.
+			Only 5 Elastic IP by default.
+			try avoid ElasticIP: instead, use a random public IP and registera DNS nameto  it
+								 or, use a Load Balancer and don't use a public IP  
+```
+
+EC2 Placement Groups
+```
+When you want to control over the EC2 instance placement strategy
+When you create, you specify one of the following:
+	Cluster: clusters instances into a low-latency group in a single AZ
+			 PRO: great network
+			 Cons: If the rack fails, all instances fails at the same time
+			 Use Case: Big DAta job that needs to complete  fast
+			 		   App that needs extremely low latency and high network throughput
+
+	Spread: spreads(propagação) instances across underlying hardware (max 7 instancer per group per AZ)
+			critical applications
+			PRO: Can span across AZ
+				 Reduce risk in simultaneous failure
+				 EC2 intancesareon differentphysical hardware
+			Cons: Limited to 7 instances per AZ
+			Use case: App that needts to maximize high availability
+					  CriticalApp where each instancemust be isolatedfrom failure from each other
+
+	Partition: spreads instances across many different partitions (which rely on different sets of racks) within an AZ.
+			   Scales to 100s of EC2 instances per group
+			   Use Case: Big Data applications = Hadoop, Cassandra,Kafka
+			   Each partition represents a rack on Aws
+			   Up to 7 partitions per AZ
+			   Can span across multiple AZ in the same Region
+			   Up to 100s of EC2
+			   A partition failure can affect manu Ec2, but won't affect other partitions
+			   EC2 get access to the partition information as  metadata
+
+```
+
+Elastic Network Interfaces (ENI):
+```
+Logical component ina VPC that represents a virtual network card
+can have the following attributes:
+	Primary privateIPv4, one or more secondary Ipv4
+	One Elastic IP per private IPv4
+	One Public Ip
+	One or more security group
+	A MAC address
+Can create ENI independently and attach them on the EC2 for failover
+Limitated to a specific AZ
+```
+
+EC2 Hibernate:
+```
+The in-memory (RAM) state is preservated
+the instance  boot is much faster! (OS is not stopped / restarted)
+The RAM state is written to a file in the root EBS vlume
+The root EBS volume must be encrypted
+Doesnt support all the instances families
+RAM size bust be less tha 150GB
+AMI:Linux AMi, Ubuntu,  Amazon...
+Root volume: MUST be EBS, encrypted, not instance store, and large
+Available for on-demand and Reserved Instances
+An instance cannot be hibernated more than 60 days
+
+Use cases:  long-running processing
+			saving the RAm state
+			services that take time to initialize
+
+```
+
+EC2 Nitro:
+```
+New virtualization technology
+Allows for better perfomance:
+	Better networking options
+	Hight speed EBS, for 64K EBS IOPS
+Better underlying security
+Instance types: AI, C5...
+			    Bare metal
+```
+
+vCPU:
+```
+Multipple threads can run on one CPU
+Each thread is represented as a virtualCPU
+Ex.: m5.2xlarge
+	 4 CPU
+	 2 threadsperCPU
+	 => 8 vCPU in total
+
+Can change the vCPU options:
+	of CPU cores: decrease ir to decrease licensing costs
+	of threads percore: disable multithreading to have 1 thread per CPU, helpful for HPC workloads
+```
+
+Ec2 Capacity Reservations:
+```
+ensure you have EC2 Capacity when needed
+Manual or planned end-date for the reservation
+No need 1 or 3 years commitment
+Capacity access i immediate, you get billed as soon as it starts
+Specify: the AZ in which toreservethecapacity
+		 number of instances for which to reservecapacity
+		 the intance attributes, including the instance  type, tenancy, OS
+Combinewith Reserved Instances and SavingPlanstodo cost saving
+```
+
+EBS Volume:
+```
+Elastic Block Store Volume, is a network drive you can attach to your instances while they ryn
+"Network USB stick":
+					Can be detacged from an EC2 instand and attached to another
+					have a provisioned capacity (size in GBs, and IOPS)
+					Linked to an AZ
+					pode ser adicionado mais EBS, contanto que esteja na mesma AZ.
+Allows your instances to persist data, even after their termination
+Can only be mounted to one instance at time, but exist multi-attach feature for some EBS
+Bound to a specific AZ
+Free tier: 30GB of free EBS storage type oftype SSD or Magnetic per month
+Delete on termination Attribute:
+	In creation, there as option.
+	Controls the EBS behavior when an EC2 instance terminate
+		By default, the root EBS volume is deleted
+		By default, any other attachedEBSvolume is not deleted
+	this  can be controlled bu Console/ CLI
+	Use case: preserve root volume when instance is terminated, to save data. 
+
+Volume Types:
+	6 types:
+		gp2/gp3 (SSD) = General purposethat balances price and performance
+						Cost effective storage, low-lattency
+						Case use: system boot volumes, virtual desktops, ddevelopment and test environments
+						1  - 16 GB 
+		io1 / io2 (SSD) = Highest-performancefor mission-critical low-latency or high-throughtput workloads
+						  Case use: Databasesworkloads
+						  			4 Gib - 16 Tib
+									App that need more than 16K IOPS
+									Max IOPS: 64K for Nitro EC2 & 32K for other
+						  io2 Block Express ( 4 Gib - 64 Tib): sub-milisecond latency
+						  									   MAxPIOPS: 256K with an IOPS:GiB ratio of 1L:1
+						  Support EBS multi-attach
+		st1 (HDD) = low Cost HDD designed for frequently accessed, throughput-intensive workloads
+					Cannot be a boot volume
+					125 Mib to 16 Tib
+					Throughput Optimized HDD: Big Data, DAta warehouse, Log Proccessing
+		sc1 (HDD) =  lowest cost volume designed for less frequently accessed workloads
+					for data that is infrequently accessed
+					Scenarios where lowest cost is important
+					Max throughput 250Mib/s max IOPS 250
+
+	Characterized in Size | Throughput | IOPS (I/O Ops per Sec)
+	Only GP2/3 and io1/2 can be used as boot volume
+```
+
+EBS Snapshots:
+```
+Make a backup of your EBSvolume at a point in time
+Not necessary to detach volume to do snapshot, but recommended
+Can copy snapshots across AZ or Region
+```
+
+AMI - Amazon Machine Image:
+```
+AMI area customization of an EC2 instance:
+	Your add your own software, configuration, Os...
+	Faster boot, because the software is pre-built in
+AMI are built for a specif region
+You can  launch EC2 instances from:
+	A Public AMI: Aws provider
+	Your own AMI: you make and maintain them yourself
+	An Aws Marketplace: an AMI someone else made ( and sells)
+```
+
+EC2 Instance Store
+```
+EBS volumes are network drives with good but "limited" performance
+If you need a HIGH-PERFORMANCE hardware disk == Ec2 Instance Store
+	Better I/O performance
+	Lose their storafeif they're stopped(ephemeral)
+	Good for buffer / cache / scratch data / temporary content
+	Risk of data loss if hardware fails
+	Backups and Replication are your responsability
+```
+
+EBS multi-attach - io1/io2 family
+```
+Attach the same EBS volume to multiple EC2 instancces in the same AZ
+Each instance has full read & write permissionsto the volume
+Use case:
+	Achieve higher app availability in clustered Linux App (ex.: Teradata)
+	App must manage concurrent writeoperations
+Must use a file sys that's cluster-aware (not XFS, EX4..)
+```
+
+EBS Encryption:
+```
+When you created an encrypted EBS volume, you get:
+	DAta at rest in encrypted inside the volume
+	All the data in flight moving between the instance and thevolume is encrypted
+	All snapshots are encrypted
+Encryption and decryption are handled transparently (nothing to do)
+Encryption has: minimal impact on latency
+				leverages keys frorm KMS (AES-256)
+				Copying an unencrypted snapshot allows encryption
+
+Encrypt an Unencrypted EBS volume:
+	Create an snapshot
+	Encrypt the snapshot ( Actions > using copy)
+	create new ebs volume from the snapshot encrypted
+	now you can attach the ebs volume to an EC2
+				
+```
+
+EBS RAID Options:
+```
+EBS is  already redundant storage (replicated within an AZ)
+RAID is possible as long as your OS supports it, some options:
+	RAID 0 (increase performance): Ec2 + one logical volume (+1EBS volume behind)
+								   Combining 2 or more volumes and getting the total disk space
+								   But one disk fails, all the data is failed
+								   Use cases: an App that needts a lot of IOPS and doesn't need fault-tolerance
+								   			  a database that has replication already built-in
+											  using this, we can have big disk with a lot of IOPS
+
+	RAID 1 (increase fault-tolerance): Mirroring a volume to another
+									   If one disk fails, our logical volume is still working
+									   We have to send the data to two EBS volume at the same time (2x network)
+									   Use case: App that need increase volume fault tolerance
+									   			 App where you need to service disks
+	RAID 5/6 - (not recommended fo EBS)
+```
+
+EFS - Elastic File System:
+```
+Managed NFS (network file system) that can be mouted on many Ec2
+Works with EC2 in multi-AZ
+Highly available, scalable, expensive (3x gp2), pay per use, no capacity planning!
+Use case: content management we serving, data sharing, Wordpress
+		  use NFSc4 protocol
+		  compatible withLinux base AMI (NOT WINDOWS)
+Uses SG to control Access to EFS
+encryption at rest using KMS
+
+Performancce & Storage Classes:
+	EFS Scale:  1K of concurrent NFS clients, 10 GB= /s throughput
+				Can grow to Petabyte0scale network file system, automatically
+	Performance Mode (set at EFS creation time): General purpose (default): latency-sensitive use cases (web server, CMS...)
+												Max I/O - higher laency, throughtput, highly parallel (BIG DATA, MEDIA PROCESSING)
+	Throughput mode: Bursting (1 TB = 50 Mib/s + burst of up to 100 Mib/s)
+					 Provisioned: set your throughput regardless of storage size
+	Storage Tiers: Lifecycle management feature - move file after N days
+				   Standard: for frequently accessed files
+				   Infrequent access (EFS-IA): cost to retrieve files, lower price to store
+```
+
+EFS x EBS:
+```
+EBS - one zone
+EFS - multi-AZ
+```
