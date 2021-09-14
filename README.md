@@ -7,10 +7,7 @@ Curso feito: Udemy - Stephane Mareek
 # Indice de estudos
 1. [IAM & Aws CLI](#IAM)
 2. [EC2](#EC2)
-    1. [Aws Global Infrastructure](#GlobalInfra)
-	2. [Cloud Economics](#CloudEconomics)
-	3. [Supporting Aws Infrastrtucture](#SupAwsInfra)
-	4. [Cenários](#cenarios01)
+3. [High Availability and Scalability: ELB & ASG](#ELB+ASG)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -398,6 +395,7 @@ If you need a HIGH-PERFORMANCE hardware disk == Ec2 Instance Store
 	Good for buffer / cache / scratch data / temporary content
 	Risk of data loss if hardware fails
 	Backups and Replication are your responsability
+	Case use: high-performance database that requires an IOPS of 210,000 for its underlying filesystem
 ```
 
 EBS multi-attach - io1/io2 family
@@ -473,6 +471,220 @@ Performancce & Storage Classes:
 
 EFS x EBS:
 ```
-EBS - one zone
-EFS - multi-AZ
+EBS - one zone, one instance at time,
+EFS - multi-AZ, multi instances linux at time, share website files, more expensive, pay per use.
 ```
+
+## ELB & ASG <a name="ELB+ASG"></a>
+
+Concepts:
+1 - Scalability:
+```
+Means that an application can handle greater loads by adapting
+Can be:
+	Vertical Scalability: increasing the SIZE of the instance
+						  is very commom for non distrtibuited systems, such as database
+						  RDS, ElastiCache
+						  Has a hardware limity
+
+	Horizontal Scalability(= elasticity): increase the NUMBER of instances for the app
+										  implies distributed systems
+										  web app/ moderns app
+```
+
+2 - High Availability
+```
+Means that you are running your app in at least 2 DC/AZ
+The goal is to survive a DC loss
+Can be:
+	Passive: RDS Multi AZ
+	Active: horizontal scaling
+```
+
+3 - Load Balancing
+```
+Are servers that forward traffic to multiple servers (EC2) downstream
+Why use?
+	Spread load across multiple downstream instances
+	Expose a single point of access to your app
+	Do regular health checks to your instances
+	Provide SSL termination (HTTPS)
+	enforce stickiness with cookies
+	HA across zones
+	Separate public traffic from private traffic
+```
+
+Elastic Load Balancer - ELB:
+```
+Is a managed load balancer: Aws guarentees that it will be  working
+							It costs less to setup your own load balancer but it well be a lot more effort
+							It is integrated with manu Aws offerings / services
+							Provide static DNS
+
+Health Checks: are crucial, checa se a instances consegue receber o trafego ou não
+			   They enable to know if instances it forwards traffic to  are available to reply to requests
+			   Is done on a port and a route
+			   If the response is not 200, the EC2 is unhealthy 
+
+4 Types of ELB:
+	Classic Load Balancer (v1 - old generation) - 2009 - CLB:
+		Supports TCP (layer 4)
+		Http & Https (layer 7)
+		Health checks are TCP or HTTP based
+		fixed hostname: xxx.region.elb.amazonaws.com
+
+	Application Load Balancer (v2 - new generation) - 2016 - ALB: 
+		Is layer 7 HTTPS
+		Load balancing to  multiple HTTP applications across machines(target groups) and to the same machine(containers)
+		Support for HTTP/2 and WebSocket
+		Support redirects from HTTP to HTTPS
+		Routing tables to diff target groups: 
+			based on path in URL
+			on hostname in URL
+			on Query string/Headers
+		Are great fit for Micro services & container-based app (Docker & amazon ECS)
+		Has a port mapping feature toredirect to a dynamic port in ECS
+		www --> route/user->External ALB --> Http-> Target Group
+		Target Groups: Ec2 instances (can be Auto Scaling Group) - HTTP
+					   EC2 tasks (managed by ECS) - HTTP
+					   LambdaFunctions - Http request is translated into a JSON event
+					   IP Addresses - must be private IP
+					   ALB can route to multiple target groups
+					   Healthy check by the group
+		Have fixed hostname
+		The ALB don't see the IP of the client directly, they are inserted in the header X-Forwarded-For
+		X-Forwarded-Port X-Forwarded-Protocol are available in the header too.
+
+	Network LoadBalancer (v2) - 2017 - NLB:
+		Layer 4 allow to:
+			Forward TCP & UDP traffic to your instancces
+			Handlemilions of request  per second
+			less latency 
+		Has one static IP per AZ, supports assigning Elastic IP
+		Are usedfor extreme performance, TCP or UDP traffic
+		Not included in Aws free tier
+		
+	Gateway LB - 2020 - GWLB: Layer 3 - IP Protocol
+		makes it easy to deploy, scale, and manage your third-party virtual appliances. It gives you one gateway for distributing traffic across multiple virtual appliances, while scaling them up, or down, based on demand. This eliminates potential points of failure in your network and increases availability.
+
+Can be: private or public
+
+Security Groups:
+Users --> HTTPS/HTTP from anywhere -> SG --> Http Restricted to ALB(allow traffic only from ELB) --> EC2
+
+Sticky Sessions (session affinity/ sessões fixadas): CACHE DE COOKIES
+	implement stickiness(ligação) so that the same client is always redirected to the same instance behind a load balancer
+	works for CLB& ALB
+	Work with the "cookie" used for stickiness has an expiration date. They are:
+		Application-based Cookies: 
+			Custom  cookie: generated by the target
+							Can incluse any custom attributes required by app
+							Cookie name must be specified individually for each target group
+							Don't use AWSALB, AWSALBAPP, AWSALBTG -- reserved by ELB
+			Application cookie: Generated by the load balancer
+								Cookie name is AWSALBAPP
+		
+		Duration-based Cookies: Cookie generated by the load balancer
+								Cookie name isAWSALB for ALB, AWSELB for CLB
+	Use case: make sure the user doesn't lose session data
+			  
+Cross-Zone Load Balancing:
+	Each load balancer instance distributes evenly across all registered instances in all AZ.
+	ALB: Always on
+		 No chargesfor inter AZ data
+	
+	NLB: Disabled by default
+		 You pay charges for inter AZ data if enabled
+	
+	CLB: Console: Enabled by default
+		 CLI/API: Disabled by default
+		 No charges for inter AZ data
+
+SSL/TLS: 
+	An SSL Certificate allows traffic between your clients and your load balancer to be encrypted in transit(in-flight encryption)
+	SSL refers to Secure Sockets Layer,used to encrypt connections
+
+	TLS refers to Transport Layer Security, which is a newer version, are mainly used(mais usados)
+
+	Public SSl certificates are issued by CA(Comodo, GoDaddy, letsencrypt...), have an expiration date and reniewd
+	Load Balancer uses an X.509 certificate(SSL/TLS server certificate)
+	You can manage certificates using ACM(Aws Certificate Manager) or upload your own
+	
+	HTTPS Listener: You must specify a default certificate or an list of certs to multiple domain
+					Clients can use SNI(Server Name INdication) to specify the hostname they reach
+					Ability to specify a security policy to support older version of SSL/TLS
+	
+	SNI: solves the problem of loadinf multiple SSL certificates onto  one  web server
+		 It's a newer protocol, and requires the client to indicate the hostname of the target server in the initial SSL handshake
+		 The server will then find the correct certificate, or return the default one
+		 Works for ALB & NLB & CloudFront
+	
+	Certificates resume: CLB(v1) ==> Only one SSL certificate
+						 ALB(v2) + NLB == multiple listeners with multiple SSL cert, uses SNI to make it work
+						 
+Connection Draining:
+	Feature naming: CLB = Connection Draining
+					ALB & NLB = Deregistration Delay
+	Give some time to complete "in-flight requests" while the EC2 is de-registering/unhealthy
+	Stops sending new requests to the EC2 which is unhealthy
+	Between 1 to 3600 sec (default: 300 sec)
+	Can be disabled (set value 0)
+	Set to a low value if your requests are short	
+
+Auto Scaling Group - ASG: 
+	Scale out(add EC2 inst) to match an increased load
+	Sclae in (remove Ec2) to match a decreased load
+	Ensure we have a min and a max number of machines running
+	Automatically register new instances to a load balancer
+	Have: A Launch configuration(AMI + Instance type, User Data, EBS vol, SG, SSH key pair)
+		  Min Size/ MAx Size/ Initial Capacity
+		  Network + Subnets information
+		  Load Balancer Information
+		  Scaling Policies
+	
+	Auto Scaling Alarms: It is possible to scale an ASG based on CloudWatch alarms
+						 An alarm monitors metrics (average CPU)
+						 Can create scale-out or scale-in policies
+	
+	ASG Brain Dump: scalingpolicie can even be on custom metrics or based on a schedule (if you know tour visitors patterns)
+					ASG use Launch configurations or Launch Templates
+					To update an ASF, you must provide a new launch conf
+					IAM roles attached to an ASG will get assigned to EC2
+					ASG are free. You pay for the  underlying resources being launched
+					ASG can terminate instances marked as unhealthy by an LB (and replace them automatically)
+	
+	Dynamic Scaling Policies:
+		Target Tracking Scaling: easy to set-up, Ex.: average CPU stay at around 40%
+		Simple / Step Scaling: When a CloudWatch alarmis triggered (CPU>70%), then add 2 units
+		Schedule Actions: Anticipate ascaling basedon known usage patterns. ex.: increase the min capacity to 10 at 12pm Fridays.
+	
+	Predictive Scaling:
+		Continuously forecast load and schedule scaling ahead
+	
+	Good metrics to scale on: CPUUtilization: Average CPU
+							  RequestCountPerTarget: make sure the number of requests per  EC2 is stable
+							  Average NetworkIn/Out
+
+	Scaling Cooldowns(esfriamento):
+		after scaling activity happens, you are in the cooldown period == 300 seconds
+		during the cooldown, the ASG will not launch or terminate additional ec2
+		Use a ready-to-use AMI to reduce configuration time
+	
+	ASG Default Termination Policy: 1. Find the AZ which has the most number of instances
+									2. If there are multiple instances in the AZ to choose from, delete the one with the oldest launch conf
+									3. ASG tries the balance the number of instances across AZ by default.
+
+	Lifecycle Hooks: By default as soon as instance is launched in an ASG it's in service
+				     You have the ability to perform extra  steps before the instance goes in service (pending  state) and before the instance is terminated(terminated)
+	
+	Launch Template vs Launch COnfiguration:
+		Both: Id of the AMI, instance type, key pair, SG, tags, user data...
+		Launch conf(legacy):Must be re-created every time
+		Launch Template (newer): Can have multiple versions
+								 Create  parameters subsets (partial confforre-use and inheritance)
+								 Provisioning using both On-Demand and Spot (or mix)
+								 Can use T2 and  is recommended by Aws.
+```
+
+
+
