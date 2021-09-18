@@ -701,7 +701,6 @@ Advantage of RDS vs EC2:
 		countinuous backup and restore to specific timespamt (Point in Time Restore)
 		monitoring dashboard
 		scaling capacity - vertical or horizontal
-
 		But you CAN'T access throught SSH
 
 RDS Backups:
@@ -729,7 +728,7 @@ Store Auto Scaling:
 
 Read Replicas: **important**
 	Help to scale your read/write capacity
-	Up to 5 read replicas
+	**Up to 5 read replicas**
 	Within AZ, Cross AZ or Cross Region
 	Replication is ASYNC, so reads are eventually consistent
 	Replicas can be promoted to their own DB
@@ -799,7 +798,7 @@ Aurora is proprietary technology from Aws (NOT OPEN SOURCED)
 Postgres/Mysql are supported as Aurora DB
 is Cloud Optimized and claims 5x performance improvement over MySQL on RDS, over 3x of Postgres on RDS
 Automatically grows in increments of 10GB, up to 64TB
-Can have 15 replicas while Mysql has 5, and the replication process is faster (sub 10 ms replica lag)
+*Can have 15 read replicas* while Mysql has 5, and the replication process is faster (sub 10 ms replica lag)
 Failoverin Autora  is instantaneous. It's HA native.
 Aurora costs more than RDS(20% more) - but is more efficient
 
@@ -827,5 +826,104 @@ Features: Routine Maintenance
 Aurora Security:
 	Similar to RDS, uses the same engines
 
+Aurora Serverless: 
+	Automated DB instantiation and auto-scaling based on actual usage
+	Good for infrequent, intermittent or unpredictable workloads
+	No capacity planning need
+	Pay per second, can be more cost-effective
 
+Aurora Multi-Master:
+	Immediate failover for write node (HA)
+	every node does r/w
+
+Global Aurora:
+	Aurora Cross Region Read Replicas: Useful for disaster recovery
+									   Simple to put in place
+	
+	Aurora Global Database (recommended): 1 primary Region (r/w)
+										  Up to 5 sec(read-only) regions, replication lag is less than 1 sec
+										  Up to 16 Read Replicas per second region
+										  Helps for decreasing latency
+										  Promoting another region (for disaster recovery) has an RTO of <1 min
+										  Use case: Disaster recovery
+
+Aurora Machine Learning:
+	Enables your to add ML-based predictions to your app via SQL
+	Simple, optimized, and secure integration between Aurora and Aws ML services
+	Supported services: Aws SageMaker (use with any ML model)
+						Aws Comprehend (for sentiment analyst)
+	don't need experience with ML 
+	Use cases: fraud detection, ads targeting, sentiment analysis, product recommendations
+
+```
+
+Amazon ElastiCache:
+```
+Is to get managed Redis or Memcached
+Caches are in-memory dB with really high performance, low latency
+Helps reduce load off of DB for read intensive workloads
+Help make your app stateless [recursos isolados](https://www.redhat.com/pt-br/topics/cloud-native-apps/stateful-vs-stateless)
+Aws takes care of OS maintenance/patching/backup/failure recovery
+
+Using ElastiCache involves heavy app code changes!
+
+Architecture DB Cache:
+	App queries ElastiCache, if not available, get from RD and store in ElastiCache.
+	Helps relieve load in RDS 
+	Cache must have an invalidation strategy to make sure only the most current data is used in there.
+
+Architecture User Session Store:
+	User logs into any of the app
+	The app WRITES the session data into ElastiCache
+	The user hits another instance of our app
+	The instance retrieves the data and the user is already logged in
+
+Redis vs Memcached:
+	Redis: multi AZ with Auto-failover
+		  read replicas to scale reads and have high availability
+		  data durability using AOF persistence
+		  Backup and restore features
+		  Use case: Gaming Leaderboards are computationally complex, so Redis Sorted sets guarantee both uniqueness and element ordering.
+		  			Each time a new element added, it's ranked in real time, then added in correct order
+	
+	Memcached: Multi-node for patitioning data (sharding - fragmentos)
+			   No HA(replication)
+			   Non persistent
+			   No backup and restore
+			   Multi-threaded architecture
+
+Cache Security:
+	All caches in ElatiCache: Do not support IAM auth
+							  IAM policies on ElastiCache are only used for AWS API-level security
+	Redis AUTH: can be user/ppass when you create a Redis cluster
+		        This is an extra level of security for your cache
+				Support SSL in flight encryption
+	Memcached: supports SASL-based auth(advanced)
+
+Patterns for ElastiCache:
+	Lazy Loading: all the read data is cached, data can become stale in cache
+	Write Throught: Adds or update data in the cache when written to a DB(no stale data)
+	Session Store: store temporary session data in a cache (using TTL features)
+				
+```
+
+List of Ports to be familiar with
+```
+Here's a list of standard ports you should see at least once. You shouldn't remember them (the exam will not test you on that), but you should be able to differentiate between an Important (HTTPS - port 443) and a database port (PostgreSQL - port 5432) 
+
+Important ports:
+
+	FTP: 21
+	SSH: 22
+	SFTP: 22 (same as SSH)
+	HTTP: 80
+	HTTPS: 443
+	
+	RDS Databases ports:
+		PostgreSQL: 5432
+		MySQL: 3306
+		Oracle RDS: 1521
+		MSSQL Server: 1433
+		MariaDB: 3306 (same as MySQL)
+		Aurora: 5432 (if PostgreSQL compatible) or 3306 (if MySQL compatible)
 ```
