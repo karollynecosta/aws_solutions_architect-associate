@@ -8,6 +8,7 @@ Curso feito: Udemy - Stephane Mareek
 1. [IAM & Aws CLI](#IAM)
 2. [EC2](#EC2)
 3. [High Availability and Scalability: ELB & ASG](#ELB+ASG)
+4. [Aws Fundamentals - RDS + Aurora + ElastiCache](#RDSAuroraElasti)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -686,5 +687,145 @@ Auto Scaling Group - ASG:
 								 Can use T2 and  is recommended by Aws.
 ```
 
+## RDS + Aurora + ElastiCache <a name="RDSAuroraElasti"></a>
+
+RDS:
+```
+Relational DAtabase Service
+It's a managed DB service for DB use SQL as query language
+Can be: Postgres, MySQL, MAriaDB,Oracle,SQL server, Aurora(aws proprietary database)
+
+Advantage of RDS vs EC2:
+	RDS is a managed service:	
+		Automated provisioning, OS patching
+		countinuous backup and restore to specific timespamt (Point in Time Restore)
+		monitoring dashboard
+		scaling capacity - vertical or horizontal
+
+		But you CAN'T access throught SSH
+
+RDS Backups:
+	Are automaticaly enabled in RDS
+	Daily full backup of the databse
+	Transaction logs are backed-up by RDS every 5 min
+	ability to restore any point in time
+	7 days retention (can be 35 days)
+
+DB Snapshots:
+	Manually trirggered by the user
+	Retention of backup for as long as you want
+
+Store Auto Scaling:
+	Helps you increase storage on your RDS dynamically
+	When RDS detects you are running out of free database storage, it scales automatically
+	Avoid manually scaling your DB store
+	You have to set Maximum Storage Threshold
+	Automatically modify storage if:
+		Free storage is less than 10% of allocated storage
+		Low storage lasts at least 5 min
+		5 hours have passed since last modification
+	Useful for app with unpredictable workloads
+	Supports all RDS engines
+
+Read Replicas: **important**
+	Help to scale your read/write capacity
+	Up to 5 read replicas
+	Within AZ, Cross AZ or Cross Region
+	Replication is ASYNC, so reads are eventually consistent
+	Replicas can be promoted to their own DB
+	App must updatetheconnection string to leverage read replicas
+	Use cases: 
+		You have a Prod DB that is taking on normal load, you want to run reporting app to run some analytics.
+		You create a Read Replica to run the new workload there.The prod app is unaffected.
+		Read replicas are used for SELECT(=read) only kind of statements (not INSERT, UPDATE, DELETE)
+	Network Cost:
+		For RDS Read Replicas within the SAME region, you don't pay the fee(honorarios)
+		For Cross Region, you pay!
+
+Multi AZ (Disaster Recovery):
+	SYNC replication == one standby DB
+	One DNS name - automatic app failover to standby
+	Increase availability
+	Failover in case of loss of AZ, loss of network, instance or storage failure
+	No manual intervention ins apps
+	Not used for scaling
+	the Read Replicas can setup as Multi AZ for Disaster Recovery(DR)
+
+How a RDS can go from Single-AZ to Multi-AZ?
+	Zero downtime operation (no need to stop)
+	Just click on "modify" for the DB
+	Happens internally:	A snapshot is taken
+						A new DB is restored from the snapshot in a new AZ
+						Synchronization is established between the two DB
+
+RDS Security - Encryption:
+	At rest encryption: Possibility to encrypt the master & replicas with Aws KMS - AES-256 encryption
+						Encryption has to be defined at launch time
+						If the master is not encrypted, the read replicas cannot be encrypted
+						Transparent Data Encryption (TDE) available for Oracle and SQL Server
+	
+	In-flight encryption: SSL certificates to encrypt data to RDS in flight
+						  Provide SSL options with trust certificate when cnnecting with databse
+						  To enforce SSL: PostgreSQL: rds.force_ssl=1 in the Parameter Groups;
+						  				  MySQL: Within theDB: GRANT USAGE ON *.*TO 'mysqluser'@'%' REQUIRE SSL;
+	
+	Encryption Operations:
+		Encrypting RDS backups: Un-encrypted create a snapshots un-encrypted
+								Encrypted create a snapshots encrypted
+								To encrypt a backup you can Copy a snapshot into an encrypted one
+		To Encrypt an un-encrypted RDS: Create a snapshot of the un-encrypted DB
+										copy the snapshot and enable encryption for the snapshot
+										Restore the DB from the encrypted snapshot
+										Migrate app to the new DB and delete the old DB
+	
+RDS Security - Network & IAM
+	Network Security: RDS are usually deployed within a private subnet,not in a public one
+					  RDS security works by leveraging SG - it controls which IP /SG can communicate with RDS
+	Access Management: IAM policies help  control who can manage RDS (throught the API)
+					   Traditional User&Pass can be used to login into 
+					   IAM-based auth can be used to login in RDS Mysql & PostgreSQL
+	IAM authentication: just need an authentication token obtained throught IAM & RDSAPI calls
+						Auth token has lifetime of 15min
+						Benefitis: Network in/out must be encrypted using ssl
+								   IAM to centrally message users instead of DB
+								   Can leverage IAM Roles andEC2 profiles for easy integration
+	Aws responsability:no ssh access, no manual DB/OS patching
+						
+```
+
+Amazon Aurora:
+```
+Aurora is proprietary technology from Aws (NOT OPEN SOURCED)
+Postgres/Mysql are supported as Aurora DB
+is Cloud Optimized and claims 5x performance improvement over MySQL on RDS, over 3x of Postgres on RDS
+Automatically grows in increments of 10GB, up to 64TB
+Can have 15 replicas while Mysql has 5, and the replication process is faster (sub 10 ms replica lag)
+Failoverin Autora  is instantaneous. It's HA native.
+Aurora costs more than RDS(20% more) - but is more efficient
+
+HA and Read Scaling:
+	6 copies of your data across 3 AZ: 4 copies out 6 needed for writes
+									   3 copies out of 6 need for reads
+									   Self healing with peer-to-peer replication
+									   Storage isstriped across 100s of volumes
+	One Aurora Instance takes writes (MASTER)
+	Automatedfailover for master in less than 30 sec
+	Master+up to 15 Aurora Read Replicas serve reads
+
+Aurora DB Cluster:
+	Writer Endpoint -- point to tha mster
+	Reader Endpoint - Connection Load Balancing 
+					  (make the orchestration between the replicas and the master into Replicas ASG)
+	Custom Endpoint - Run analytical queries on specific replicas
+					  Define a subset of Aurora Instances as a Custom Endpoint
+					  Grupo separado de instancias para rodar cargas específicas
+
+Features: Routine Maintenance
+		  Advance Monitoring
+		  Automated Patching
+
+Aurora Security:
+	Similar to RDS, uses the same engines
 
 
+```
