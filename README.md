@@ -9,6 +9,8 @@ Curso feito: Udemy - Stephane Mareek
 2. [EC2](#EC2)
 3. [High Availability and Scalability: ELB & ASG](#ELB+ASG)
 4. [Aws Fundamentals - RDS + Aurora + ElastiCache](#RDSAuroraElasti)
+5. [Route53](#Rout53)
+
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -926,4 +928,173 @@ Important ports:
 		MSSQL Server: 1433
 		MariaDB: 3306 (same as MySQL)
 		Aurora: 5432 (if PostgreSQL compatible) or 3306 (if MySQL compatible)
+```
+
+## Route53 <a name="Route53"></a>
+
+DNS:
+```
+Domain Name System - translate the human friendly hostnames into the machine IP addresses
+www.google.com => 17.125.35.33
+DNS is the backbone of the internet
+DNs uses hierarchical naming structure:   .com
+									   example.com
+									   www.example.com
+									   api.example.com
+
+DNS Terminologies:
+	Domain Register: Aws Route53, GoDaddy...
+	DNS records: A, AAAA, CNAME, NS
+	Zone file: contains DNS records
+	Name Server: resolves DNS queries (Authoritative or Non-Authoritative)
+	Top Level Domain (TLD): .com,.us,.in,.gov,.org....
+	Second Level Domain (SLD): amazon.com, google.com
+
+	[FQDN(Fully Qualified Domain Name)]
+	Htttp://api.www.example.com.
+	Protocol://DomainName(subdomain.subdomain.SLD.TLD.root)  
+
+DNS Works:
+Web Browser --> request access to example.com --> Local DNS Server --> TLD DNS Server(.com) + SLD DNS Server --> return the answer.
+```
+
+Aws Route 53:
+```
+A highly available, scalable, fully managed and Authoritative DNS
+	Authoritative = the client can update the DNS records
+Is a Domain Register
+Ability to check the health of your resources
+The ONLY Aws Service which provides 100% availability SLA
+Why 53? 53 is a reference to the traditional DNS port. 
+
+Records:
+	How you want to route traffic for a domain
+	Each record contains: 
+		Domain/Subdomain name - example.com
+		RecordType: A - maps a hostname to IPv4
+					AAAA - maps a hostname to IPv6 
+					CNAME - maps a hostname to another hostname
+						The target is a domain name which must have an A or AAAA
+						Can't create a CNAME record for the top node of a DNS namespace(Zone Apex)
+						Ex.: you can't create example.com, but you can create for www.example.com
+					NS - Name Servers for the Hosted Zone
+						Control how traffic is routed for a domain
+		Value - 123.456.22.11
+		Routing Policy - how route53 responds to queries
+		TTL (Time To Live) - amount of time the record cached at DNS Resolvers
+			High TTL - 24h: Less traffic on route53
+							Possbile outdated records
+			Low TTL - 60sec: MOre traffic on rout53($$)
+							 Records are outdated for less time
+							 Easy to change records
+			Except for Alias records, TTL is mandatory for each DNS record
+
+	Alias Records: Maps a hostname to an Aws Resource (DNS --> Type A --> Value: ALB)
+				   An extension to DNS functionality
+				   Automatically recognizes changes in the resource's IP addresses
+				   It can be used fot he top node of a DNS namespace != of CNAME
+				   Is always of type A/AAAA for Aws resources
+				   You can't set the TTL
+				   Targets: ELB
+				   			CloudFront
+							Api Gateway, VPC Endpoints
+							Elastic Beanstalk
+							S3 Websites
+							route53 records	 
+					Cannot set for EC2 DNS name
+	
+	Route53 supports the following DNS record types:
+		A/aaaa/cname/NS
+		CAA/DS/MX/NAPTR/PTR/SOA/TXT/SPF/SRV
+
+	Hosted Zones: A container for records that define how to route traffic to a domain and its subdomains
+				  Public Hosted Zones: contains records that specify how to route traffic on the Internet (app.meypublicdomain.com)
+				  Provate hosted Zones: contain records that specify how you route traffic within one or more VPC(app2.company.internal)
+				  You pay $0.50 per month
+	
+	CNAME vs Alias:
+		When you want to redirect your ALB to your DNS, you can use:
+			CNAME: points a hostname to any other hostname (app.mydomain.com => blabla.anything.com)
+				   ONLY FOR NON ROOT DOMAIN
+				   test.domain.com >> Type: cNAME >> Value: the ALB
+
+			Alias: points a hostname to an Aws Resource (app.mydomain.com => blabla.anything.com)
+				   WORK FOR ROOT DOMAIN AND NON ROOT DOMAIN(aka.mydomain.com)
+				   Free of charge
+				   Native health check
+				   domain.com >> Type A >> Value: Alias (set the ALB)
+
+Commands to check the availability of our domain:
+	`sudo yum install -y bind-utils`
+	nslookup test.exemple.com
+	dig test.exemple.com
+
+Routing Policies:
+	Define how Route53 responds to DNS queries
+	Supports: 
+		Simple: route traffic to a single resource
+				can specify multiple values in the same record
+				If multiple values are returned, a rendom on is chosen by the client
+				when Alias enabled, specify only one Aws resource
+				Can't be associate with healthy checks
+		
+		Weighted: control the % of the requests that go to each specific resource
+				  assign each record a relative weight(max 100)
+				  DNs records must have the same name and type
+				  Can be associate with healthy checks
+				  Use cases: load balancing between regions, testing new app version
+				  			 If you want to stop sending traffic to a resouce --> weight=0
+							 If all records are 0, they will be divide equally 
+		
+		Latency-based: redirect to the resource that has the least latency close to us
+					   super helpful when latency for users is a priority
+					   latency is based on traffic between users and Aws Region
+					   Germany users may be directed to the US
+					   Can be associate with Health Checks(has a failover capability)
+		
+		Failover (Active-Passive): Create 2 instances, and set the HC. If the first become unhealthy, then the second is up to respond to DNS requests
+
+		Geolocation: different from latency-based!
+					 Is based on user location!
+					 Specify location by Continent, Country or by US State
+					 Should create a "Default" record (in case the's no match on location)
+					 Use cases: website localization, restrict content distribution, load balancing
+					 Can be associate with HC
+		
+		Geoproximity: Route traffic to your resources bases on the geographic location of users and resources
+					  Ability to shift more traffic to resouces based on the defined bias(valor):
+					  	To change the size of the geografic region: To expand(1 to 99) more traffic to the resource
+						  											To shrink (-1 to -99) less traffic to the resource
+					  Resources can be: Aws resources or Non-Aws resources
+		
+		Multi-Value: Use when routing traffic to multiple resources
+					 Route53 return multiple values/resources
+					 Can be associate with HC(return only healthy resources)
+					 Up to 8 health records are returned for each
+					 Is not substitute to ELB
+
+
+Traffic Flow: Simplify the process of creating and maintaining records in large and complex conf
+			  It's a visual editor to manage complex routing decision trees
+			  Configurations can be saved as Traffic Flow Policy
+
+Health Checks: HTTP health checks are only for public resources
+			   Integrated with CloudWatch metrics
+			   Automated DNS Failover: 1. Monitor an endpoint: About 15 global health checkers:
+																	Healthy/Unhealthy threshold - 3 by default
+																	Supported protocol: HTTP, HTTPS and TCP
+																	Ability to choose which locations you want route53 to use
+															   Health pass only when the endpoint responds with the 2xx and 3xx status code
+															   Can be setup to pass/fail based on the text in the first 5120bytes of the response
+															   Configure you roter/firewall to allow incoming requests from route53 HC
+			   						   2. Monitor other health check(calculate): combine the results of multiple HC into a single HC
+										  										 can use OR, AND or NOT
+																				 can monitor up to 256 child HC
+																				 Specify how many if the checks need to pass to make the parent pass
+																				 Usage: perfom maintenance to your website without causing all HC to fail
+									   3. Monitor CloudWatch Alarms(full control)
+			   Monitor Private hosted zones: with CloudWatch Metric and associate a CloudWatch Alarm, then the HC will check
+
+Godaddy(3rd Party) as Registrar & Route53 as DNS Service:
+	Register on GoDaddy + Public Hosted Zone(will deliver the name servers, that have to be add in Godaddy)
 ```
