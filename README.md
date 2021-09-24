@@ -10,7 +10,7 @@ Curso feito: Udemy - Stephane Mareek
 3. [High Availability and Scalability: ELB & ASG](#ELB+ASG)
 4. [Aws Fundamentals - RDS + Aurora + ElastiCache](#RDSAuroraElasti)
 5. [Route53](#Rout53)
-
+6. [Solutions Architect Discussions](#solArch)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -1097,4 +1097,99 @@ Health Checks: HTTP health checks are only for public resources
 
 Godaddy(3rd Party) as Registrar & Route53 as DNS Service:
 	Register on GoDaddy + Public Hosted Zone(will deliver the name servers, that have to be add in Godaddy)
+```
+
+## Solutions Architect Discussions <a name="solArch"></a>
+
+Case 1: Stateless Web App
+```
+whatisthetime.com allows people to know what time it is
+don't need a DB
+
+Scaling horizontally: Group of 3 Private EC2 instances in +2 AZ within ASG --> Restricted Security groups rules --> 
+					  ELB + health checks --> Clients requests --> DNS Query within Route53
+```
+
+Case 2: Stateful Web App
+```
+myclothes.com allows people to buy clothes online
+There's a shopping cart
+hundreds of users at the same time
+
+ - Introduce Stickiness(para manter os dados da sessão)
+ - Introduce User Cookies: cookies must be validated and must be less than 4kb
+ - Introduce Server Session with ElastiCache: DNS queries by route53 --> User requests 
+ 											 --> ELB with multi-az --> ASG with 3 groups of EC2 in different AZ 
+											 --> Elasticache store/retrieve session data and make sure the data is secure
+ - Storing User Data in a DB: DNS with route53 --> Users requests
+							  --> multiAZ ELB --> ASG with 3 groups of EC2 in different AZ 
+							  --> RDS storing/retrieve user data(address, name, etc)
+ - Scaling Reads: DNS with route53 --> Users requests
+				--> multiAZ ELB --> ASG with 3 groups of EC2 in different AZ 
+				--> RDS master --> RDS replica
+ - Scaling Reads - write through: DNS with route53 --> Users requests
+						--> multiAZ ELB --> ASG with 3 groups of EC2 in different AZ 
+						--> Check if the info is already in cache in ElastiCache
+						--> Caso nao tenha:
+					    --> RDS read/write 
+ - Multi Az - survive disaster: DNS with route53 --> Users requests
+						--> multiAZ ELB --> ASG with 3 groups of EC2 in different AZ 
+						--> Check if the info is already in cache in ElastiCache MultiAz
+						--> Caso nao tenha:
+					    --> RDS read/write MultiAz
+ - Security Group rules: Route53 --> Client Request
+						--> Rule: Open HTTP/S to 0.0.0.0/0 --> ELB multiAZ
+						--> Rule: restrict traffic to EC2 SG from the ELB --> ASG with groups of ec2 in differents az
+						--> Rule: restrict traffic to ElastiCache SG from the Ec2 SG --> Elasticache MultiAZ
+						--> Rule: restrict traffic to RDS SG from the Ec2 SG --> RDs MultiAZ
+```
+
+Case 3: Stateful Web App mywordpress.com
+```
+Fully scalable Wordpress website
+that website access and correctly display picture uploads
+our user data should be stored in MySql DB
+
+ - RDS Layer or
+ - Aurora MySQL: benefits of Multi Az Read Replicas
+ - Storing images with EBS: DNS with route53 --> Users send image
+						--> multiAZ ELB --> EC2 and one EBS volume attached
+						Obs: the problem with EBs is that it only works within one instance
+ - Storing images with EFS: DNS with route53 --> Users send image
+						--> multiAZ ELB --> EC2 + ENI(Elastic Network Interfaces) 
+						--> One EFS storing the images
+						Obs.: the EFS is shared with many instances
+```
+
+Instantiating Applications quickly(rapidamente):
+```
+EC2 instances: 
+	Use Golden AMI: install your app, OS dependencies...before hand and launh your EC2 from the AMI
+	Booststrap using User DAta: for dynamic configuration, use User Data Scripts
+	Hybrid: mis golden AMi and User Data (Elastic Beanstalk)
+
+RDS DB:
+	Restore from a snapshot: the DB will have schemas and data ready!
+
+EBS Volumes:
+	Restore from snapshot: the disk will already be formatted and have data!
+
+```
+
+ElasticBeanstalk:
+```
+Is a developer centric view of deploying an app on Aws
+It uses all the component's we've seen before: EC2, ASG, ELB, RDS///
+Managed Service: automatically handles capacity provisioning...
+				 just tha pp code is the responsibility of the developer
+We still have full control over the conf
+Is free but you pay for the underlying instances
+Components:
+	Application: collections of Elastic Beanstalk components(environments, versions, conf...)
+	Application Version: an iteration of your app code
+	Environment:
+		Collection of Aws resources running an app version(only one app version at a time)
+		Tiers: Web server environment Tier(ELB) & Worker Environment Tier(SQS Queue)
+		You can create multiple environments(dev, test/qa, prod...)
+Supports: Go, Java, .NET, PHP, Python...or you can write a template for your language. 
 ```
