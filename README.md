@@ -11,6 +11,7 @@ Curso feito: Udemy - Stephane Mareek
 4. [Aws Fundamentals - RDS + Aurora + ElastiCache](#RDSAuroraElasti)
 5. [Route53](#Rout53)
 6. [Solutions Architect Discussions](#solArch)
+7. [Amazon S3](#S3å)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -1104,7 +1105,7 @@ Godaddy(3rd Party) as Registrar & Route53 as DNS Service:
 Case 1: Stateless Web App
 ```
 whatisthetime.com allows people to know what time it is
-don't need a DB
+don't need a DB // don't srote data on the host = stateless
 
 Scaling horizontally: Group of 3 Private EC2 instances in +2 AZ within ASG --> Restricted Security groups rules --> 
 					  ELB + health checks --> Clients requests --> DNS Query within Route53
@@ -1115,6 +1116,7 @@ Case 2: Stateful Web App
 myclothes.com allows people to buy clothes online
 There's a shopping cart
 hundreds of users at the same time
+require some kind of storage == stateful
 
  - Introduce Stickiness(para manter os dados da sessão)
  - Introduce User Cookies: cookies must be validated and must be less than 4kb
@@ -1192,4 +1194,110 @@ Components:
 		Tiers: Web server environment Tier(ELB) & Worker Environment Tier(SQS Queue)
 		You can create multiple environments(dev, test/qa, prod...)
 Supports: Go, Java, .NET, PHP, Python...or you can write a template for your language. 
+```
+
+## Amazon S3 <a name="S3"></a>
+
+Resume:
+```
+Infinitely scaling storage
+Many websites use S3 as a backbone
+Amazon S3 allows people to store objects(files) in "buckets"(directories)
+Buckets must have: globally unique name
+				   defined at the region level
+				   no uppercase, no underscore, 3-63 characteres long
+				   not an IP, must start with lowercase letter or number
+```
+
+Objects:
+```
+ objects have a key
+		 The key is the full path:
+		 	s3://my-bucket/myfile.txt
+		    composed of prefix+object name
+		 Values are the content of the vody:
+		 	Max object is 5TB
+			If > 5GB, must use "multi-part upload"
+		 Metadata is a list of text key/value pairs - system or user metadata
+		 Tags: unicode key/value - useful for security/lifecycle
+		 Version ID (if versioning is enabled)
+```
+
+Versioning:
+```
+you can version your files, it is enabled at the bucket level
+Same key overwrite will increment the version: 1,2,3...
+It is best practice to version your buckets: Protect against unintend deletes and has easy roll back to previous version
+Notes: Any file that is not versioned prior to enabling versioning will have version "null"
+	   Suspending versioning does not delete the previous versions
+```
+
+Encryption for Objects:
+```
+Make your objects secures 
+There are 4 methods of encrypting objects:
+	SSE-S3: encrypts S3 objects using keys handled & managed by Aws
+		    objects is encrypted server side
+			AES-256 encryption type
+			Must set header: "x-amz-server-side-enc":"AES256"
+			HTTPS/HTTPS
+
+	SSE-KMS: leverage KMS to manage encryption keys
+			 user control + audit trail
+			 objects is encrypted server side
+			 Must set header: "x-amz-server-side-encryption":"aws:kms"
+			 Object --> HTTP/S + Header --> KMS encryption -- S3 Bucket.
+
+	SSE-C: when you want to manage your won encryption keys
+		   S3 does not store the encryption key you provide
+		   HTTPS must be used
+		   Encryption key must provided in HTTP headers, for every HTTP request made
+		   Object + Client side data key --> HTTPS only + DataKey in Header --> Client encryption -- Bucket.
+
+	Client Side Encryption: clients must encrypt data themselves before sending to S3
+							clients must decrypt data themselves when retrieving from S3
+							customer fully manages the keys and encryption cycle
+
+Encryption in trasit(SSL/TLS): 
+	S3 exposes: HTTP endpoint: non encrypted
+				HTTPS endpoint: encryption in flight
+	You're free to use the endpoint you want, but HTTPS is recommended by default
+	HTTPS is mandatory for SSE-C
+	in flight == SSL/TLS
+```
+
+S3 Security:
+```
+User based:
+	IAM policies - which API calls shoud be alloewd for a specific user from IAM console
+				   an IAM principal can access an S3 object if: the user permissions allow it OR the resource policy allows it
+				   												and there's no explicit DENY
+
+Resource Bases:
+	Bucket Policies - bucket wide rules from the S3 console - allows cross account
+					  JSON based policies: Resources buckets and objects
+										   Actions: Set of API to allow or Deny
+										   Effect: Allow/Deny
+										   Principal"The account or user to apply the policy to
+					  Use to: Grant public access to the bucket
+					  		  Force objects to be encrypted at upload
+							  Grand access to another account (Cross Account)
+					  Block Public Access throught: new access control list (ACLs)
+					  								any access control lists(ACLs)
+													new public bucket or access point policies
+													these setting were created to prevent company data leaks
+
+	Objects Access Control List (ACL) - finer grain
+	Bucket Access Control List (ACL) - less commom
+
+Networking:
+	Supports VPC ENdpoint (for instances in VPC without www internet)
+Logging and Audit:
+	S3 Access Logs can be stored in other S3 bucket
+	API calls can be logged in Aws CloudTrail
+User Security:
+	MFA Delete: MFA can be required in versioned buckets to delete objects
+	Pre-Signed URLs: URLs that are valid only for a limited time
+					 Opção usada para quando precisamos visualizar o objeto por um tempo, mas sem deixá-lo público. 
+
 ```
