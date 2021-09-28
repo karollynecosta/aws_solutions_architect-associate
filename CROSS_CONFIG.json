@@ -1,0 +1,17 @@
+[
+    {
+        "AllowedHeaders": [
+            "Authorization"
+        ],
+        "AllowedMethods": [
+            "GET"
+        ],
+        "AllowedOrigins": [
+            ""
+        ],
+        "ExposeHeaders": [
+            "URL_OF_ORIGIN_BUCKET_WITHOUT_SLASH"
+        ],
+        "MaxAgeSeconds": 3000
+    }
+]

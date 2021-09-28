@@ -11,7 +11,8 @@ Curso feito: Udemy - Stephane Mareek
 4. [Aws Fundamentals - RDS + Aurora + ElastiCache](#RDSAuroraElasti)
 5. [Route53](#Rout53)
 6. [Solutions Architect Discussions](#solArch)
-7. [Amazon S3](#S3å)
+7. [Amazon S3](#S3)
+8. [AWS SDK, IAM Roles & Policies](#SDKRolesPolicies)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -1301,3 +1302,42 @@ User Security:
 					 Opção usada para quando precisamos visualizar o objeto por um tempo, mas sem deixá-lo público. 
 
 ```
+
+S3 Websites:
+```
+S3 can host static websites and have them accessible on the www
+The website URL: <bucket-name>.s3-website.<Aws-Region>.amazonaws.com
+				If return 403(Forbidden) error, make sure the bucket policy allows public reads!
+				Use Aws Policy Generator			
+```
+
+S3 CORS:
+```
+An ORIGIN is a scheme(protocol), host(domain) and port
+	https://www.exemple.com (443 for HTTPS and 80 for HTTP)
+CORS = Cross-Origin Resource Sharing
+Web Browser based mechaninsm to allow requests to other origins while visiting the main origin
+	Same origin: http://example.com/app  & http://example.com/app3
+	Different origins: http://www.example.com  & http://other.example.com
+The requests won't be fulfilled unless the other origin allows for the requests, using CORS Headers
+	ex: Access-control-allow-origin
+
+"A origem http://www.ex.com está me direcionando para o seu site, voce permite isso Cross Origin http://www.crossother.com ?
+--> Sim, o www.ex.com está permitido via Access-Control-Allow-Origin, com os Access-Control-Allow-Methods: GET,PUT,DELETE"
+
+If a client does a cross-origin request on our s3 bucket, we need to enable the correct CORS headers
+**It's a popular exam question**
+You can allow for a specific origin or for *(all origins) ON THE CROSS ORIGIN BUCKET, the origin bucket only make a request. 
+```
+
+S3 Consistency Model:
+```
+Strong consistency as of December 2020
+After a: successful write of a new object (new PUT)
+		 or an overwrite or delete of an existing object (overwrite PUT/DELETE)
+...any: subsequent read request immediately receives the latest version of the object(read after write consistency)
+		subsequent list request immediately reflects changes(list consistency)
+Available at no additional cost, without any perfomance impact
+```
+
+## AWS SDK, IAM Roles & Policies <a name="SDKRolesPolicies"></a>
