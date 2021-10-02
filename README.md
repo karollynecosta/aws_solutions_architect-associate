@@ -13,6 +13,7 @@ Curso feito: Udemy - Stephane Mareek
 6. [Solutions Architect Discussions](#solArch)
 7. [Amazon S3](#S3)
 8. [AWS SDK, IAM Roles & Policies](#SDKRolesPolicies)
+9. [Advanced S3 & Athena](#AdvancedS3Ath)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -1298,8 +1299,14 @@ Logging and Audit:
 	API calls can be logged in Aws CloudTrail
 User Security:
 	MFA Delete: MFA can be required in versioned buckets to delete objects
-	Pre-Signed URLs: URLs that are valid only for a limited time
-					 Opção usada para quando precisamos visualizar o objeto por um tempo, mas sem deixá-lo público. 
+	Pre-Signed URLs: URLs that are valid only for a 3600 sec limited time
+					 Opção usada para quando precisamos visualizar o objeto por um tempo, mas sem deixá-lo público.
+					 Can change timeout with --epires-in [time-by-seconds] argument 
+					 Users given a pre-signed URL inherit the permissions of the person who generate the URL for GET/PUT
+					 Examples:
+					 	Allow only logged-in users to download a premium video 
+						Allow temporarily a user to upload a file to a precise location in our bucket
+
 
 ```
 
@@ -1341,3 +1348,271 @@ Available at no additional cost, without any perfomance impact
 ```
 
 ## AWS SDK, IAM Roles & Policies <a name="SDKRolesPolicies"></a>
+EC2 Metadata:
+```
+Metadata = info about the instance
+Userdata = lunch script of the Ec2 instance
+
+In the Ec2:
+	curl http://169.254.169.254/latest/meta-data/  # return the meta-data
+
+```
+
+SDK Overview:
+```
+Perform actions on Aws directly from your applications code
+Languages: Java, .NET, PHP, Python(boto3 botocore), Go, Ruby
+When calling DynamoDB this use Aws SDK.
+Default region: us-east-1
+```
+
+## Advanced Amazon S3 & Athena <a name="AdvancedS3Ath"></a>
+
+S3 MFA-Delete:
+```
+Enable Versioning on the S3, so you will need MFA to:
+	Permanently delete an object version
+	Suspend versioning on the bucket
+
+You don't need MFA for: enabling versioning, listing deleted versions
+Only root account can enbale/disable MFA-Delete by using the CLI.
+```
+
+S3 Default Encryption vs Bucket Policies:
+One way to "force encryption" is to use a bucket policy and refuse any API call to PUT an S3 object without encryption headers.
+```
+{
+	"Version": "2012-10-17",
+	"Id": "PutObjectPolicy",
+	"Statement": [
+		{
+			"Sid": "DenyIncorrectEncryptionHeader",
+			"Effecty": "Deny",
+			"Principal": "*",
+			"Action": "s3:PutObject",
+			"Resource": "arn:aws:s3::<bucket>/*",
+			"Condition": {
+				"Null": {"s3:x-amz-server-side-encryption": true}
+			}
+		}
+	]
+}
+```
+
+Another way is to use the default encryption in S3.
+order: 1 - Default encryp
+	   2 - bucket policie
+
+S3 Access Logs:
+```
+For audit purpose, you may want to log all access to S3 buckets
+Any request made to S3, from any account, authorized or denied, will be logged into another S3 bucket.
+That data can be analyzes using data analysis tools/Athena.
+Warning: do not set your logging bucket to be the monitored bucket
+		 It will create a logging loop, and your bucket will grow in size exponentially
+```
+
+S3 Replication (CRR & SRR):
+```
+Must enable versioning in source and destination buckets:
+	After activating, only new objects are replicated
+	For DELETe operations: can repolciate delete markers from source to target (optional)
+						   deletions with a version IS are not replicated (to avoid malicious deletes)
+	There ir no "chaining = encademento" of replication: if bucket 1 has replication into bucket 2, which has replication into bucket 3. then objects created in bucket 1 are not replicated to bucket 3.
+Cross Region Replication = CRR
+Same Region Replication = SRR
+Buckets can be in different accounts
+Copying is async
+Must give proper IAm permissions to S3
+
+Asynchronous: eu-west-1 --> us-east1
+
+CRR - use cases: Compliance
+				 lower latency access
+				 replication across accounts
+				 
+SRR - use cases: Log aggregation
+				 Live replication between production and test accounts
+```
+
+S3 Storage Classes:
+```
+S3 Standard - General Purpose:
+	High durability of objects across multiple AZ
+	99,99% Availability over a given year
+	Sustain 2 concurrent facility failure
+	use Cases: Big Data analytics,
+			   Mobile & gaming app
+			   content distribution...
+
+S3 Standard-Infrequent Access (IA):
+	Suitable for data that is less frequently accessed, but requires rapid access when needed
+	99.9% Availability
+	Low cost compared to Amazon S3 Standard
+	Sustain 2 concurrent facility failures
+	Use Cases: as a data store for disaster recovery, backups...
+
+S3 One Zone-IA:
+	Data is stored in a single AZ
+	99.5% Availability
+	Low latency and high throughput performance
+	Suports SSL for data at transit and encryption at rest
+	Low cost compared to IA (20%)
+	Use CAses: Storing secondary backup copies of on-premise data, or storing data you can recreate
+
+S3 Intelligent tiering:
+	Same low latency and hight throughout perfomance of S3 standard
+	Small monthly monitoring and auto-tiering fee
+	Automatically moves objects between two access tiers based on changing access patterns
+	Designed for durability of 99.9% over a giver year across multiple AZ
+	Resilient against events that impact an entire AZ
+
+Amazon Glacier:
+	Not public objects
+	Low cost object storage meant for archiving/backup
+	Data is retained for the longer term - 10 years
+	Alternative to on-premise magnetic tape storage
+	Average annual durability is 99.99%
+	Cost per storage per month ($0.004 / GB) + retrieval cost
+	Each item in Glacier is called "Archive" (+ 40TB)
+	Archives are stored in Vaults
+	3 retrieval options:
+		Expedited - 1 to 5 min
+		standard - 3 to 5h
+		Bulk - 5 to 12h
+		Minimum storage duration = 90 days
+	
+	Vault Lock: Adopt a WORM(Write Once Read Many) model
+				Lock the policy for future edits (can no longer be changed)
+				Helpful for compliance and data retention
+	
+Amazon Glacier Deep Archive:
+	For long term storage - cheaper:
+		Standard - 12h
+		Bulk - 48h
+		Minimum storage duration = 180 days
+
+
+S3 Reduced Redundancy Storage (deprecated)
+```
+
+S3 Lifecycle Rules:
+```
+Transition actions:
+	It defines when objects are transitioned to another storage class.
+		Ex.: Move obj to Standard IA class 60 days after creation
+			 Move to glacier for archiving after 6 months
+
+Expiration actions: 
+	Configure objects to expire(DELETE) after some time.
+		Ex.: Access log files can be set to deleter after 365 days
+			 Can be used to delete old versions of files (if versioning is enabled)
+			 Can be used to delete incomplete multi-part uploads
+
+Rules can be created for:
+	A certain prefix (s3://bucket/mp3/*)
+	Certain objects tags (Department:Finance)
+
+Scenario 1:
+"App on EC2 creates images thumbnails after profile photos are uploaded to S3. These thumbnails can be easily recriated, and only need to be kept for 45 days. the source images should be able to be immediately retrieved for these 45 days, anda afterwards, the user can wait up to 6hours. How would you design this?"
+	-- S3 source images can be on Standard, with lifecycle configuration to transition them to GLACIER Standard after 45 days.
+	-- S3 thumbnails can be ONEZONE_IA, with a lifecycle configuration to expire them (delete) after 45 days.
+
+scenario 2:
+"You should be able to recover your deleted S3 objects immediately for 15 days, although this may happen rarely. After this time, and for up to 365 days, deletec objects should be recoverable within 48h"
+	-- Enable S3 verisoning in order to have object versions
+	-- You can transition there "noncurrent version" of the object to S3_IA
+	-- You can transition afterwards there noncurrent to DEEP_ARCHIVE Bulk.
+```
+
+S3 Analytics - Storage Class Analysis
+```
+You can setup s3 analytics to help determine when to transition objects from Stardard to Standard_IA
+does not work for ONEZONE_IA or GLACIER
+Report is updated daily
+Takes about 24h to 48h to first start
+Good first step to put together Lifecycle rules
+```
+
+S3 Baseline Performance:
+```
+S3 automatically scales to high requests rates, latency 100-200ms
+Your app can achieve at least 3.500 PUT/COPY/POST/DELETE and 5.500 GET/HEAD request per second per prefix in a bucket.
+There are no limits to the number of prefixes in a bucket.
+If you spread reads across all four prefixes evenly, you can achieve 22K request per second fot GET and HEAD
+
+S3 - KMS limitation:
+	If you use SSe-KMS, you may be impacted by the KMS limits
+	When you upload, it calls the GenerateDatakey KMS API
+	When you download, it calls the Decrypt KMS API
+	Count towards the KMS wuota per second, you can increase using the Service Wuotas Console. 
+
+S3 Performance:
+	Multi-Part upload:
+		recommended for file > 100MB
+		must use for files > 5GB
+		Can help parallelize uploads (speed up transfer)
+
+	S3 Transfer Acceleration:
+		Increase transfer speed by transferring file to an Aws edge location which will forward the data to the S3 bucket in the target region.
+		Compatible with multi-art upload
+
+	S3 Byte-Range Fetches:
+		Parallelize GETs by requesting specific byte ranges
+		Better resilience in case of failures
+		Can be used to speed up downloads
+		Can be used to retrieve only partial data (ex.: head of file)	
+```
+
+S3 Select & Glacier Select:
+```
+retrieve less data using SQL by performing server side filtering
+Can be filter by rows & columns *simples Sql statements*
+Less network transfer, less CPU cost client-size
+```
+
+S3 Event Notification:
+```
+S3:ObjectCreated..
+Object name filtering possibile (*.jpg)
+Use case: generate thumbnails of images uploaded to S3
+Can create as many S3 events as desired
+S3 event notif typically deliver events in seconds but can sometimes take a minute or longer
+If you want to ensure that an event notification is send every successful write, you can enable versioning on your bucket.
+```
+
+S3 Requester Pays:
+```
+In general, bucket owners pay for all S3 storage and data transfer costs associated with their bucket.
+Whith requester Pays buckets, the requester pays the cost of the request and the data download from the bucket.
+Helpgul when you want to share large datasets with other accounts.
+The requester mus be authenticated in Aws (cannot be anonymous)
+```
+
+Athena:
+```
+Serveless service to perform analytics directly against S3 files
+Uses SQL language to query the files
+Has a JDBS / ODBC driver
+Charged per query and amount of data scanned
+Supports CSV, JSON, ORC, Avro, and Parquet (built on Presto)
+Use cases: BI, analytics, reporting, VPC Flow Logs
+		   ELB Logs, CloudTrail trails...
+
+		   ANALYZE DATA DIReCTLY ON S3 ==> USE ATHENA
+```
+
+S3 Object Lock:
+```
+enable versioning
+Adopt WORM model
+Block an object version deletion for a specified amount of time
+Object retention:
+	Retention Period: specifies a fixed period
+	Legal Hold: same protection, no expiry date
+
+Modes:
+	Governance mode: users can't overwrite or delete an object version or alter its lock setting unless they have special permissions
+
+	Compliance mode: a protected object verison can't be overwriteen or deleted by any user, including the root user in your Aws account. When an object is locked in compliance mode, its  retention mode can't be changed, and irs retention period can't be shortned. 
+```
