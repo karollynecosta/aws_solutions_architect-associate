@@ -14,6 +14,7 @@ Curso feito: Udemy - Stephane Mareek
 7. [Amazon S3](#S3)
 8. [AWS SDK, IAM Roles & Policies](#SDKRolesPolicies)
 9. [Advanced S3 & Athena](#AdvancedS3Ath)
+9. [CloudFront & Global Accelerator](#CloudFrontGlb)
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -1615,4 +1616,123 @@ Modes:
 	Governance mode: users can't overwrite or delete an object version or alter its lock setting unless they have special permissions
 
 	Compliance mode: a protected object verison can't be overwriteen or deleted by any user, including the root user in your Aws account. When an object is locked in compliance mode, its  retention mode can't be changed, and irs retention period can't be shortned. 
+```
+
+## CloudFront & Global Accelerator <a name="CloudFrontGlb"></a>
+
+CloudFront == CDN
+```
+Content Delivery Network = CDN
+Improves read performance, content is cached at the edge
+216 points of presence globally *edge locations*
+DDoS protection, ingration with Shield and WAF
+Can expose external HTTPS and can talk to internal HTTPS backends
+
+CloudFront Origins:
+	S3 Bucket: For distributing files and caching them at the edge
+			   Enhance security with cloudfront OriginAccessIdentity(OAI) + S3 bucket policy
+			   Cloudfront can be used as an ingress (to upload files)
+	
+	Custom Origin (HTTP): 
+		ALB: Client --> Request --> SG(ALB Public) --> Allow SG of ALB --> SG(EC2 private)
+		EC2: Client --> Req --> Edge locations --> Allow public IP of edge locations --> SG(ec2 public)
+		S3 website (enable bucket as a static s3 website)
+		Any HTTP backend you want
+
+CloudFront Multiple Origin:
+	To route to different kind of origins based on the content type
+	Based on path pattern: /images/* --> S3 Bucket
+						   /api/* --> ALB
+
+CloudFront Origin Groups:
+	To increase HA and do failover
+	Origin group: one primary and onde secondary origin
+				  If th eprimary origin fails, the second one is used
+
+
+CloudFront Geo Registriction:
+	Restric who can access your distribution:
+		Whitelist
+		Blacklist
+	The country is determined using Geo-IP database
+	Use case: Coyright Laws to control access to content
+
+Cloudfront vs S3 CRR:
+	CloudFront: Global Edge Network
+				Files are cached fot a TTL (maybe a day)
+				Great for static content that must be available everywhere
+	S3 CRR: Must be setup for each region you want replication to happen
+			Files are update in near real-time
+			Read only
+			Freat for dynamic content that needs to be available at low-latency in few regions
+
+Cloudfront Signed URL / Signed Cookies
+	When you want to distribute paid shared content to premium users over the world.
+	Attach a policy with:
+		Includes URL expiration
+		Includes IP ranges to access the data from
+		trusted signers (which Aws accounts can create signed URL)
+	How long should be URL be valid for?
+		Shared content: make ir short (movie, music)
+		Private content: for years (private to the user)
+	
+	Signed URL = access to individual files (one signed URL per file)
+	Signed Cookies = access to multiple files (one signed coolie for many files)
+
+CloudFront Signed URL vs S3 Pre-Signed URL:
+	Cloudfront: Allow access to a path, no matter the origin
+				Account wide key-pair, only the root can manage it
+				Can filter by IP, path, date, expiration
+				Can leverage caching features
+	
+	S3 Pre-Signed: Issue a request as the person who pre-signed the URL
+				   Uses the IAM key of the signing IAM principal
+				   Limited lifetime
+
+CloudFront Field Level Encryption:
+	Protect user sensitive information throught app stack
+	Adds an additional layer of security along with HTTPS
+	Sensitive information encrypted at the edge close to user
+	Usage: Specify set of fields in POST requests(up to 10) and sprecify te public key to encrypt them
+
+Cloudfront Pricing:
+	The cost of data out per edge location varies
+	Price Classes:
+		1. Price Class All: all regions -- best performance
+		2. Price Class 200: most regions, but excludes the most expensive regions
+		3. Price Class 100: only the least expensive regions
+```
+
+Aws Global Accelerator:
+```
+Application with global users who want to access it directly.
+We wish to go as fast as possible through Aws network to minimize network
+
+UnicastIP: one server holds one IP address
+AnycastIP: All server hold the same IP address and the client is routed to the nearest one.
+
+Global Accelerator: leverage aws internal net to route to your app
+					2 Anycast IP are created for your app
+					The anycast send traffic directly to Edge Locations
+					The Edge locations send the traffic to your app
+					Work with: elastic IP, instances, ALB, NLB, public or private
+					Consistent Performance: Intelligent routing to lowest latency and fast regional failover
+											No issue with client cache (because the IP don't change)
+											Internal Aws network
+					Health Checks: helps make your app global, great for sisaster recovery
+					Security: only 2 external IP need to be whitelisted
+							  DDoS protection thanks to Aws Shield
+
+Global Accelerator vs CloudFront:
+	They both use Aws global network and its edge locations around the world
+	Both sevices integrate with Aws Shield for DDoS protection
+
+	Cloudfront: Improves performance for both cacheable content (images and videos)
+				Dynamic content (API acceleation an d dynamic site delivery)
+				Content is served at the edge
+
+	Global Accelerator: Improves performance for a wide range of app over TCP or UDP
+						Proxying packets at the edge to app running in one or more Aws regions
+						Good fit for non-HTTP use cases, such as gaming(UDP), IoT (MQTT), or VoiceIP(voip)
+						Good for HTTP use cases that require static IP or deterministic, fast regional failover.
 ```
