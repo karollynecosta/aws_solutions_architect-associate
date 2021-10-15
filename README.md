@@ -14,7 +14,9 @@ Curso feito: Udemy - Stephane Mareek
 7. [Amazon S3](#S3)
 8. [AWS SDK, IAM Roles & Policies](#SDKRolesPolicies)
 9. [Advanced S3 & Athena](#AdvancedS3Ath)
-9. [CloudFront & Global Accelerator](#CloudFrontGlb)
+10. [CloudFront & Global Accelerator](#CloudFrontGlb)
+11. [Aws Storage Extras](#AdvancedStorage)
+
 
 ## IAM & Aws CLI <a name="IAM"></a>
 Identity and Access Management, is:
@@ -299,6 +301,7 @@ Allows for better perfomance:
 Better underlying security
 Instance types: AI, C5...
 			    Bare metal
+Use case: Use EBS io2 Block Express volumes on Nitro-based EC2 instances to achieve a maximum Provisioned IOPS of 256,000
 ```
 
 vCPU:
@@ -362,7 +365,7 @@ Volume Types:
 						  									   MAxPIOPS: 256K with an IOPS:GiB ratio of 1L:1
 						  Support EBS multi-attach
 		st1 (HDD) = low Cost HDD designed for frequently accessed, throughput-intensive workloads
-					Cannot be a boot volume
+					CANNOT be a boot volume
 					125 Mib to 16 Tib
 					Throughput Optimized HDD: Big Data, DAta warehouse, Log Proccessing
 		sc1 (HDD) =  lowest cost volume designed for less frequently accessed workloads
@@ -372,6 +375,7 @@ Volume Types:
 
 	Characterized in Size | Throughput | IOPS (I/O Ops per Sec)
 	Only GP2/3 and io1/2 can be used as boot volume
+	CANNOT be a boot volume: Throughput Optimized HDD (st1) + Cold HDD (sc1)
 ```
 
 EBS Snapshots:
@@ -479,7 +483,7 @@ Performancce & Storage Classes:
 EFS x EBS:
 ```
 EBS - one zone, one instance at time,
-EFS - multi-AZ, multi instances linux at time, share website files, more expensive, pay per use.
+EFS - multi-AZ, multi instances LINUX at time, share website files, more expensive, pay per use.
 ```
 
 ## ELB & ASG <a name="ELB+ASG"></a>
@@ -555,7 +559,7 @@ Health Checks: are crucial, checa se a instances consegue receber o trafego ou n
 		Target Groups: Ec2 instances (can be Auto Scaling Group) - HTTP
 					   EC2 tasks (managed by ECS) - HTTP
 					   LambdaFunctions - Http request is translated into a JSON event
-					   IP Addresses - must be private IP
+					   IP Addresses - must be PRIVATE IP
 					   ALB can route to multiple target groups
 					   Healthy check by the group
 		Have fixed hostname
@@ -738,7 +742,7 @@ Read Replicas: **important**
 	Within AZ, Cross AZ or Cross Region
 	Replication is ASYNC, so reads are eventually consistent
 	Replicas can be promoted to their own DB
-	App must updatetheconnection string to leverage read replicas
+	App must update the connection string to leverage read replicas
 	Use cases: 
 		You have a Prod DB that is taking on normal load, you want to run reporting app to run some analytics.
 		You create a Read Replica to run the new workload there.The prod app is unaffected.
@@ -816,6 +820,10 @@ HA and Read Scaling:
 	One Aurora Instance takes writes (MASTER)
 	Automatedfailover for master in less than 30 sec
 	Master+up to 15 Aurora Read Replicas serve reads
+	Each Read Replica is associated with a priority tier (0-15). In the event of a failover, Amazon Aurora will promote the Read Replica that has the highest priority (the lowest numbered tier).
+	If two or more Aurora Replicas share the same priority, then Amazon RDS promotes the replica that is largest in size.
+	If two or more Aurora Replicas share the same priority and size, then Amazon Aurora promotes an arbitrary replica in the same promotion tier.
+	read replica vai promover a que tiver com maior prioridade(ord crescente), ex: entre 0-10, Tier-1(32GB) e Tier10(16TB), a Tier-1 será a escolhida.
 
 Aurora DB Cluster:
 	Writer Endpoint -- point to tha mster
@@ -1503,6 +1511,9 @@ Transition actions:
 	It defines when objects are transitioned to another storage class.
 		Ex.: Move obj to Standard IA class 60 days after creation
 			 Move to glacier for archiving after 6 months
+		INVALID lifecycle Transitions: S3 Intelligent-Tiering => S3 Standard
+									   S3 One Zone-IA => S3 Standard-IA
+										* => *Standard*
 
 Expiration actions: 
 	Configure objects to expire(DELETE) after some time.
@@ -1610,6 +1621,8 @@ Adopt WORM model
 Block an object version deletion for a specified amount of time
 Object retention:
 	Retention Period: specifies a fixed period
+					  Different versions of a single object can have different retention modes and periods
+					  When you apply a retention period to an object version explicitly, you specify a Retain Until Date for the object version.
 	Legal Hold: same protection, no expiry date
 
 Modes:
@@ -1701,6 +1714,12 @@ Cloudfront Pricing:
 		1. Price Class All: all regions -- best performance
 		2. Price Class 200: most regions, but excludes the most expensive regions
 		3. Price Class 100: only the least expensive regions
+
+CloudFront Multi-tier cache:
+	Regional edge caches that improve latency.
+
+	Bypass: Dynamic content, as determined at request time (cache-behavior configured to forward all headers)
+			Proxy methods PUT/POST/PATCH/OPTIONS/DELETE go directly to the origin
 ```
 
 Aws Global Accelerator:
@@ -1736,3 +1755,245 @@ Global Accelerator vs CloudFront:
 						Good fit for non-HTTP use cases, such as gaming(UDP), IoT (MQTT), or VoiceIP(voip)
 						Good for HTTP use cases that require static IP or deterministic, fast regional failover.
 ```
+
+## Aws Storage Extras <a name="AdvancedStorage"></a>
+Aws Snow Family:
+```
+Highly-secure, portable devices to collect and process data at the edge, and migrate data into and out of AWS
+Offer offiline devices to perform data migrations
+If takes more than a week to transfer over the network, use Snowball devices!
+
+Data migration:
+	Aws Services: Snowcone: it's a small box
+							Small, portable computing anywhere, rugged & secure, withstands harsh environments(desert, rain)
+							Light (4.5 pounds, 2.1 kg)
+							Device used for edge computing, store and data transfer
+							8 TB of usable storage
+							Use Snowcone where snowball does not fit
+							Must provide your own battery / cables
+							Can be sent back to Aws offline, or connect ir to internet and use Aws DataSync to send data
+
+				  Snowball edge: its a huge box
+				  				 Physical data transport solution: move TB or PBs of data in or out of Aws
+								 Alternative to moving data over the network
+								 Pay per data transfer job
+								 80 TB usable store
+								 Provide block storage and S3-compatible object storage
+								 Snowball Edge Storage Optimized: 80Tb of HGG capcaity for block volume and s3 storage
+								 Snowball Edge Compute Optimized: 42Tb of HGG capcaity for block volume and s3 storage
+								 Use cases: large data cloud migrations, DC decommission, disaster recovery
+
+				  Snowmobile: it's a TRUCK (caminhão)
+				  			  Transfer exabytes of data (1 EB = 1000 PB = 10000000 TBs)
+							  High security: temparature controlled, GPS, 24/7 video surveillance
+							  Better than snowball if your transfer more than 10PB
+
+	Challenges: Limited connectivity/bandwidth
+				High network cost
+				Shared bandwith
+				Connection stability
+
+Usage process: 
+	1. Request Snowball devices from the Aws console for delivery
+	2. Install the snowball client / AWs OpsHub on your servers
+	3. Connect the snowball to your servers an copy files using the client
+	4. Ship back the device when you're done
+	5. Data will be loaded into an S3 bucket
+	6. Snowball is completely wiped
+	
+
+Edge computing:
+	What is Edge computing?
+		Process data while it's being create on an edge location.
+			can be: a truck on the road, shipt on the sea...
+		These locations may have:
+			limited / no internet access
+			limited / no easy access to computing power
+		we setup a snowball Edge / Snowcone device to do edge computing
+		Use cases: Preprocess data
+				   Machine learning at the edge
+				   Transcoding media streams
+		Eventually we can ship back the device to Aws (for transferring data for example)
+
+	Snowcone (smaller):
+		2 CPUs, 4GB of memory, wired or wireless access
+		USB-C power using a cord or the optional battery
+
+	Snowball Edge - Compute optimized:
+		52 vCPUs, 208 GiB of RAM
+		Optional GPU (useful for video processing or machine learning)
+		42 TB usable storage
+
+	Snowball Edge - Storage optimized:
+		Up to 40 vCPUs, 80 Gib RAM
+		Objects storage clustering available
+	
+	All: can run EC2 & Lambda functions (using aws IoT Greengrass)
+	Long-term deployment options: 1 and 3 years discounted pricing
+
+Aws OpsHub:
+	To use Snow Familly devices, you need a CLI
+	you can use Aws OpsHub (software to install) to manage Snow family device:
+		Unlicking and configuring single or clusted devices
+		Transferring files
+		Launching and managing isntances 
+		monitor devices metrics (storage, active instances)
+		Launch compatible Aws services on your devices (DataSync, NFS, EC2)
+
+```
+
+Snowball into glacier:
+```
+Snowball cannot import to Glacier directly
+Must use S3 first, in combination with an S3 lifecycle policy.
+```
+
+Aws Storage Gateway:
+```
+Problem: Hybrid Cloud for storage, S3 is proprietary technology (unlike NFS / EFS), so how do you expose the S3 data on-premises?
+
+Solution: Aws Storage Gateway
+	Bridge between on-premises data and cloud data in S3
+	Use cases: disaster recovery, backup & restore, tiered storage
+	3 types: **important to know the diff**
+		File Gateway: Configured S3 buckets are accessible using NFS and SMB protocol
+					  Supports S3 standard, S3 IA, S3 One Zone IA
+					  Bucket access using IAm roles for each File Gateway
+					  Most recently used data is cached in the file gateway
+					  Can be mounted on many servers
+					  Integrated with AD for user authentication
+					  
+		Volume Gateway: Block storage using iSCSI protocol backed by S3
+						Backed by EBS snapshots which can help restore on-premises volumes!
+						Cached volumes: low latency access to most recent data
+						Stored Volumes: entire dataset is on premise, scheduled backups to S3					
+
+		Tape Gateway: Some companies have backup process using physical tapes
+					  With Tape Gateway, companies use the same process but, in the Cloud
+					  Virtual Tape Library (VTL) backed by S3 and Glacier
+					  Back up data using existing tape-based processes (and iSCSI interface)
+					  Works with leading backup software vendors
+	
+	Storage Gateway - Hardware appliance: 
+		Using Storage Gateway means you nedd on-premises virtualization
+		Otherwise, you can use a Storage Gateway Hardware Appliance
+		You can buy it on amazon.com
+		Works with File, Volume and tape Gateway
+		Has the required CPU, memory, network, sSD cache resources
+		Helpful for daily NFS backups in small data centers
+
+Tips for exam:
+	On-premises data to the cloud == Storage Gateway
+
+	File access/NFS - user auth with AD == File Gateway (backed by s3)
+
+	Volumes/ Block Storage / iSCSI == Volume gateway (backed by s3 with EBS snapshot)
+
+	VTL Tape Solution / Backup with iSCSI == Tape Gateway (s3 and glacier)
+
+	No on-premises virtualization == Hardware applicance
+```
+
+Amazon FSx for Windows (FIle Server):
+```
+Problem: EFS is a shared POSIX ssystem for linux system
+Resolution: FSx for Windows
+	Is a fully managed Windows file system shared drive
+	Supports SMB protocol & NTFS
+	Microsoft AD integration, ACLs, user quotas
+	Built on SSD, scale up to 10s of GB, millions os IOPS, 100s PB of data
+	Can be accessed from your on-premise infrastructure
+	Can be configured to be Multi-AZ (HA)
+	Data is backed-up daily to S3
+```
+
+Amazon FSx for Lustre:
+```
+Lustre is a type of parallel distributed file system, for large-scale computing
+the name Lustre is derived from "Linux" and "cluster"
+use cases: Machine learning, High Performance Computing(HPC)
+		   Video Processing, Financial Modeling, Eletronic Design Automation
+Scales up to 100s GBs, millions of IOPS, sub-ms latencies
+Seamless integration with S3: Can read S3 as a file system (through FSx)
+							  Can write the output of the computations back to S3
+Can be used from on-premises servers
+
+FSx File System Deployment Options:
+Scratch File System: temporary storage
+					 Data is not replicated (doesn't persist if file server fails)
+					 High burst (6x faster, 200mbp per Tib)
+					 usade: short-term processing, optimize costs
+
+Persistent File System: Long-term storage
+						Data is replicated within same AZ
+						Replace failed files within minutes
+						Usage: long-term processing, store sensitive data
+
+```
+
+Aws Transfer Family:
+```
+a fully-managed service for file transfers into and out of Amazon S3 or EFS using the FTP protocol
+Supported Protocols:
+	Aws Transfer for FTP (within VPC)
+	Aws Transfer for FTPS (File Transfer Protocol over SSL(FTPS))
+	Aws Transfer for STPS (Secure File Transfer Protocol(SFTP))
+Managed infrastructure, Scalable, reliable, Highly Available (multi-AZ)
+Pay per provisioned endpoint per hour + data transfers in GB
+store and manage users credentials within the service
+Integrate with existing auth systems (Microsoft AD, LDASP, Okta, Amazon Cognito, custom)
+Usage: sharing files, public datasets, CRM, ERP...
+```
+
+Resume:
+```
+S3: Object store
+Glacier: Object Archival
+EFS: Network File System for Linux intances, POSIX 
+FSx for Windows: NFS for Windows Server
+FSx for Lustre: High Performance Computing Linux file system
+EBS volume: Network storage for one Ec2 instance at a time
+Instance Storage: Physical store for your EC2 
+Storage Gateway: File gateway, Volume Gateway(cache & stored), Tape Gateway
+Snowball / Snowmobile: to move large amount of data to the cloud, physically
+Database: for specific workloads, usually with indexing and querying
+```
+
+## Practice Test Tips
+
+GuardDuty:
+```
+When a company decides to stop use GuardDuty service + delete all existing findings: 
+ ==> Disable the service in the general settings - 
+ Disabling the service will delete all remaining data, including your findings and configurations before relinquishing the service permissions and resetting the service. So, this is the correct option for our use case.
+
+Logs supported: VPC Flow Logs, DNS logs, CloudTrail events
+```
+
+Order of the storage charges($$$) incurred for the test file on storage types:
+```
+Cost of test file storage on S3 Standard < Cost of test file storage on EFS < Cost of test file storage on EBS
+```
+
+The company has been asked to block access from two countries and allow access only from the home country of the company ==> Configure AWS WAF on the Application Load Balancer in a VPC. 
+
+Deletion of Customer Master Key(CMK) of KMS:
+```
+To delete a CMK in AWS KMS you schedule key deletion.
+You can set the waiting period from a minimum of 7 days up to a maximum of 30 days.
+The default waiting period is 30 days. During the waiting period, the CMK status and key state is Pending deletion.
+To recover the CMK, you can cancel key deletion before the waiting period ends. After the waiting period ends you cannot cancel key deletion, and AWS KMS deletes the CMK.
+```
+
+The product team at a startup has figured out a market need to support both STATEFUL and STATELESS client-server communications via the APIs developed using its platform:
+```
+API Gateway creates RESTful APIs that enable stateless client-server communication and API Gateway also creates WebSocket APIs that adhere to the WebSocket protocol == which enables stateful, full-duplex communication between client and server
+```
+
+AWS Lambda currently supports 1000 concurrent executions per AWS account per region. If your Amazon SNS message deliveries to AWS Lambda contribute to crossing these concurrency quotas, your Amazon SNS message deliveries will be throttled. You need to contact AWS support to raise the account limit. 
+
+To prevent your API from being overwhelmed by too many requests == Amazon API Gateway, Amazon SQS and Amazon Kinesis 
+
+Continue to be processed even if any instance goes down, as the underlying application architecture would ensure the replacement instance has access to the required dataset == Use Instance Store based EC2 instances.
+
+Company wants to migrate 70TB de cada 10 applicações para a Aws == Order 10 Snowball Edge Storage Optimized devices to complete the one-time data transfer + Setup Site-to-Site VPN to establish connectivity between the on-premises data center and AWS Cloud.
