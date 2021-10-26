@@ -16,6 +16,7 @@ Curso feito: Udemy - Stephane Mareek
 9. [Advanced S3 & Athena](#AdvancedS3Ath)
 10. [CloudFront & Global Accelerator](#CloudFrontGlb)
 11. [Aws Storage Extras](#AdvancedStorage)
+12. [Decoupling applications:  SQS, SNS, Kinesis, Active MQ](#DeclouplingApplications)
 
 
 ## IAM & Aws CLI <a name="IAM"></a>
@@ -823,7 +824,7 @@ HA and Read Scaling:
 	Each Read Replica is associated with a priority tier (0-15). In the event of a failover, Amazon Aurora will promote the Read Replica that has the highest priority (the lowest numbered tier).
 	If two or more Aurora Replicas share the same priority, then Amazon RDS promotes the replica that is largest in size.
 	If two or more Aurora Replicas share the same priority and size, then Amazon Aurora promotes an arbitrary replica in the same promotion tier.
-	read replica vai promover a que tiver com maior prioridade(ord crescente), ex: entre 0-10, Tier-1(32GB) e Tier10(16TB), a Tier-1 será a escolhida.
+	read replica vai promover a que tiver com maior prioridade(ord crescente) e de maior tamanho, ex: entre 0-10, Tier-1(32GB) e Tier10(16TB), a Tier-1 será a escolhida.
 
 Aurora DB Cluster:
 	Writer Endpoint -- point to tha mster
@@ -1912,7 +1913,7 @@ Amazon FSx for Lustre:
 Lustre is a type of parallel distributed file system, for large-scale computing
 the name Lustre is derived from "Linux" and "cluster"
 use cases: Machine learning, High Performance Computing(HPC)
-		   Video Processing, Financial Modeling, Eletronic Design Automation
+		   Video Processing, Financial Modeling, Eletronic Design Automation(EDA)
 Scales up to 100s GBs, millions of IOPS, sub-ms latencies
 Seamless integration with S3: Can read S3 as a file system (through FSx)
 							  Can write the output of the computations back to S3
@@ -1957,6 +1958,92 @@ Instance Storage: Physical store for your EC2
 Storage Gateway: File gateway, Volume Gateway(cache & stored), Tape Gateway
 Snowball / Snowmobile: to move large amount of data to the cloud, physically
 Database: for specific workloads, usually with indexing and querying
+```
+
+
+## Decloupling Applications: SQS, SNS, Kinesis, Active MQ <a name="DeclouplingApplications"></a>
+
+Mutiple applications need to communicate with one another, there are two patterns of this:
+1 - Synchronous communications: app to app
+		Can be problematic if there are sudden spikes of traffic
+		In that case, it's better to decouple your app: 
+			using SQS: queue model
+			using SNS: pub/sub model
+			using Kinesis: ream-time streaming model
+		these services can scale independently from our app!
+
+2 - Asynchronous communications / Event based: app to queue to app 
+
+Amazon SQS:
+```
+What's a queue(fila)? ==> é um serviço de entrega descentralizada de msg, onde existe um/varios produtores de msg -- envia a msg -- sqs recebe --> entrega para o/os consumidores --> retira a msg da fila Sqs.
+
+Standard Queue:
+	Oldest offering - 10 years
+	Fully managed service, **used to decouple applications**
+	Attributes:
+		Unlimited throughut, unlimited number of messages in queue
+		Default retention of message: 4 days - 14 days, after that, will be lost. 
+		Low latency (<10ms on publish and receive)
+		Limitation of 256kb per message sent
+	Can have duplicated messages (at least once delivery, occasionally)
+	Can have out of order messages (best effort ordering)
+
+Producing Messages:
+	Message up to 256kb, produced to SQS using the SDK( SendMessage API)
+	the message is persisted in SQS until a consumer deletes it
+	Message retentionL min 4 days, up to 14 days
+
+	Example: send an order to be processed
+		Order id
+		Customer id
+		Any attributes you want
+	
+	SQS standard: unlimited throughput
+
+Consuming Messages:
+	Consumers (running on Ec2, servers, lambda...)
+	Pool SQS for messages (receive up to 10 messages at a time) Tem mensagem aí pra mim?
+	Process the messages (ex.: insert the msg into an RDS DB)
+	Delete the message using the DeleteMessag API
+
+Multiple Ec2 consumers:
+	Consumers receive and process msg in parallel
+	At least once delivery
+	Best-effort message ordering
+	Consumers delete messages after processing them
+	We can scale consumers horizontally to improve throughput of processing
+
+SQS with ASG:
+	Sqs will send a poll for msg into an ASG
+	Them Cloudwatch Metric - Queue length (ApproximateNumberOfMessages) will Alarm for breach at CloudWatch Alarm
+	It will scale directly to ASG
+
+SQS to decouple between app tiers:
+	Requests --> ASG with Front --> send msg --> SQS Queue  --> receive msg --> ASG witth backend --> insert in S3
+
+SQS security:
+	Encryption: in-flight enccryption using https api
+				At rest enc using kms keys
+				client-side enc if the client wants to perform enc/decryp itself
+	
+	Access Controls: IAM policies to regulate access to the SQS API
+
+	SQS Access Policies: useful for cross-account access to SQS queues
+						 useful for allowing other services (SNS,S3...) to write to an SQS queue
+
+SQS Message Visibility Timeout:
+	After a message is polled by a consumer, it becomes invisible to other consumers
+	By default is 30s to be processed. After that, the msg is received.
+	If a message is not processed within the visibility timeout, it will be processed twice
+	Solution == consumer call ChangeMessageVisibility API to get more time. Cautin with the time set, don't has to be too high(hours) or too low(sec)
+
+SQS Dead Letter Queue - DLQ (filas mortas):
+	Scenario: a consumer fails to process a msg within the Visibility Timeout.. the msg goes back to the queue.
+	We can set a threshold of how many timmes a msg can go back to the queue
+	After the MaximumReceives threshold is exceeded, the mmsg goes into a dead letter queue(DLQ)
+	Useful for debuggig!
+	Make sure to process the msg in the DLQ before 14 days expire
 ```
 
 ## Practice Test Tips
