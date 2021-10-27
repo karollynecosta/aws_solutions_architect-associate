@@ -17,6 +17,8 @@ Curso feito: Udemy - Stephane Mareek
 10. [CloudFront & Global Accelerator](#CloudFrontGlb)
 11. [Aws Storage Extras](#AdvancedStorage)
 12. [Decoupling applications:  SQS, SNS, Kinesis, Active MQ](#DeclouplingApplications)
+13. [Container on Aws: EC2, Fargate, ECR & EKS](#Containers)
+14. [Serverless](#Serverless)
 
 
 ## IAM & Aws CLI <a name="IAM"></a>
@@ -1988,6 +1990,7 @@ Standard Queue:
 		Limitation of 256kb per message sent
 	Can have duplicated messages (at least once delivery, occasionally)
 	Can have out of order messages (best effort ordering)
+	SQS scales automcatically
 
 Producing Messages:
 	Message up to 256kb, produced to SQS using the SDK( SendMessage API)
@@ -2044,7 +2047,343 @@ SQS Dead Letter Queue - DLQ (filas mortas):
 	After the MaximumReceives threshold is exceeded, the mmsg goes into a dead letter queue(DLQ)
 	Useful for debuggig!
 	Make sure to process the msg in the DLQ before 14 days expire
+
+SQS Request-Response Systems:
+	Architecture for a backend HA/decoupled
+	Requesters --> Send request --> Request Queue --> ASG Responders
+	<-- Send response to Response Queue --> Send response to Requesters
+	To implement this pattern: use the [Sqs Temporaty Queue Client](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-temporary-queues.html)
+	It leverages virtual queues intead of creating/deleting SQS queues (cost-effective)
+
+SQS Delay Queues - Fila de espera:
+	Delay a msg (consumers don't see it immediately) up to 15 min
+	Default is 0 sec
+	Can set a default at queue level
+	Can override the default on send using the DelaySeconds parameter
+
+SQS FIFO Queue - primeiro a entrar, primeiro a sair:
+	FIFO = Fisrt in First Out (ordering of msg in the queue)
+	Limited throughtout: 300msg/sec without batching or 3000msg/s with batching(lote).
+	Exactly-once send capability (by removing duplicates)
+	Messages are processed in order by the consumer
+
+	Has to end with .fifo	
 ```
+
+Amazon SNS:
+```
+What if you want to send one message/email to many receivers?
+Pub / Sub pattern: 
+	Buying Service --> SNS Topic -- Event receivers (email notif, fraud service, shipping serv, sqs queue)
+
+The "event producer" only sends message to one SNS topic
+As many event receivers (subscriptions) as we want to listen to the SNS topic notifications
+Each subscriber to the topic will get all the messages
+Up to 10Millions subscriptions per topic
+Subscribers can be: SQS
+					HTTP/HTTPS
+					Lambda
+					emails
+					SMS
+					Mobile Not
+
+SNS integrates with a lot of AWS Services:
+	Many Aws services can send data directly to SNS for notifications
+	CloudWatch (for alarms)
+	ASG notifications
+	S3 on bucket events
+	CloudFormation (upon state changes ==> failed to build, etc)
+
+How to publish:
+	Topic Publish (using the SDK):
+		Create a topic // a subscription // publish to the topic
+	Direct Publish (for mobile apps SDK):
+		Create a plataform app // a plataform endpoint // publish to the platform endpoint // works with Google GCM, Amazon ADM...
+
+Sns Security:
+	Encryption: in-flight enccryption using https api
+				At rest enc using kms keys
+				client-side enc if the client wants to perform enc/decryp itself
+	
+	Access Controls: IAM policies to regulate access to the SNS API
+
+	SNS Access Policies: useful for cross-account access to SNS topic
+						 useful for allowing other services (SQS,S3...) to write to an SNS topic
+
+SNS FIFO Topic:
+	Similar features as SQS FIFO: Orderind by Message Group ID
+								  Deduplication using a Deduplication ID or Content Based Deduplication
+	Can oly have SQS FIFO queues as subscribers
+	Limited throughput
+	In case you need Fan Out + Ordering + deduplication
+
+SNS - Message Filtering:
+	JSON policy used to filter messages sent to SNS topic's subscriptions
+	If a subscription doesn't have a filter policy, it receives every message
+```
+
+SNS + SQS: Fan Out:
+```
+Push once in SNS, receive in all SQS queues that are subscribers
+Fully decoupled, no data loss
+SQS allows for: data persistence
+				delayed processing and retries of work
+Ability to add more SQS subscribers over time
+Make sure your SQS queue access policy allows for SNS to write
+
+S3 events to multiple queues:
+	For the same combiantion of: event type and prefix you can only have one S3 event rule.
+	If you want to send the same S3 event to many SQS, use Fan Out model.
+```
+
+Kinesis:
+```
+Makes it easy to collect, process, and analyze sreaming data in real-time
+Ingest real-time data such as: App logs, Metrics, Website clickstreams, IoT telemetry...
+Types:
+	Kinesis Data Steams: capture, process and store data streams
+		Producers(App, Client, SDK, KPL, Kinesis Agent) --> Send Record (partition key + DAta Blob (up to 1MB)) 1MB/sec or 1K msg/sec per shard
+		--> Kinesis Data Steams scale the shards(blocos) --> send to Consumers(Apps, Lambda, Kinesis Data Firehose, Kinesis Data Analytics) 2MB/sec per shard
+		Billing is per shard provisioned, can have as many shards as you want
+		Retention between 1 dai to 365 days
+		Ability to reprocess(replay) data
+		Once data is inserted in Kinesis, it can't be deleted (immutability)
+		DAta that shares the same partition goes to the same shard (ordering)
+		Producers: Aws SDK, Kinesis Producer Library (KPL), Kinesis Agent
+		Consumers:
+			Write your own: KCL, Aws SDK
+			Managed: Lambda, Kinesis DAta Firehose, Kinesis Data Analytics
+
+	Kinesis Data Firehose: load data streams into Aws data stores
+		Producers --> Record up to 1 MB --> Kinesis Data Firehose --> Data transformation <-->Batch writes --> Aws Destinations: S3, Redshift(copy through S3), Elastisearch
+		Fully managed service, no administration, automatic scaling, serverless
+			Aws: Redshift / S3 / ElastiSearch
+			3rd party partner: Splunk / MongoDB/ DataDog / NewRelic
+			Custom: send to any HTTP endpoint
+		Pay for data going through  firehose
+		Near Real Time:
+			60 sec latency minimum for non full batches
+			Or minimum 32MB of data at a time
+		Supports many data formats, conversions, transformations using Lambda
+		Can send failed or all data to a backup S3 bucket
+
+	Kinesis Data Analytics (SQL App): analyze data streams with SQL or Apache Flink
+		Sources (Kinesis Data Streams / Firehose) --> Data Analytics --> Sinks
+		Perform real-time analytics on Kinesis Stream using SQL
+		Fully managed, no servers to provision
+		Automatic scaling
+		Real-time analytics
+		Pay for actual consumption rate
+		Can create streams out of the real-time queries
+		Use cases: Time-series analytics
+				   Real-time dashboards
+				   Ream-time metrics
+
+	Kinesis Video Streams: capture, process, and store video streams
+
+
+Data Streams vs Firehose:
+	Data Streams: Streaming service for ingest at scale
+					  Write custom code (producer / consumer)
+					  Real-time (˜200ms)
+					  Managed scaling (shard splitting/ merging)
+					  Data storage for 1 to 365 days
+					  Supports replay capability
+
+	Data Firehose: Load sreaming data into S3/ Redshift..
+					   Fully Managed
+					   Near real-time
+					   Automatic scaling
+					   No data storage
+					   Doesn't support replay capability
+	
+Ordering data into Kinesis:
+	If you have 5 trucks on the road sending their GPS positions refularly into Aws
+	You want to consume the data in order for each truck, so that you can track their movement accurately.
+	how should you send that data into Kinesis?
+		==> Send using a "Partition key" value of the "truck_id"
+			The same key will always go to the same shard
+
+Ordering data into SQS:
+	For SQS standard, there is no ordering.
+	For SQS FIFO:
+		if you don't use a Group ID, msg are consumed in the order they are sent, with only ONE consumer.
+		You want to scale the number of consumers, but you want msg to be grouped when they are related to each other == Use a Group ID (similar to Partition key in Kinesis)
+
+Kinesis vs SQS ordering:
+	Case: 100 trucks, 5 kinesis shards, 1 SQS FIFO
+	Kinesis Data Streams: On average you'll have 20 trucks per shard
+						  Trucks will have their data ordered within each shard
+						  The max amount of consumer in parallel we can have is 5
+						  Can receive up to 5MB of data - good
+	SQS FIFO: Only one SQS FIFO queue
+		      100 group Id
+			  up to 100 COnsumers (due to the 100 group id) - each consumer in one group id
+			  up to 300msg/sec (3K if using batching)
+
+```
+
+SQS vs SNS vs Kinesis:
+```
+SQS: Consumer "pull data"
+	 Data is deleted after being consumed
+	 Can have as many workers (consumers) as we want
+	 No need to provision throughtput
+	 Ordering guarentees only on FIFO queues
+	 Individual msg delay capability
+
+SNS: Push data to many subscribers
+	 Up to 12.500K subscribers
+	 Data is not persisted (lost if no delivered)
+	 PUB/Sub
+	 Up to 100K topics
+	 No need to provision throughput
+	 Integrates with SQS for fan-out architecture pattern
+	 FIFO capability for SQS FIFO
+
+Kinesis: Standard: pull data with 2MB per shard
+		 Enhance-fan out: oush data 2MB per shard per consumer
+		 Possibility to replay data
+		 Meant for real-time big data, analytics and ETL
+		 Ordering at the shard level
+		 Data expires after X days
+		 Must provision throughput
+```
+
+Amazon MQ:
+```
+SQS, SNS are Cloud-native services
+Traditional app running from on-premises may use Open protocols such as: MQTT, AMQP, STOMP, Openwire, WSS
+
+When migration to the cloud, intead of re-engineering the application to use SQS/SNS, we can use Amazon MQ
+MQ = Managed Apache ActiveMQ
+	MQ doen't scale as much as SQS/SNS
+	MQ runs on dedicated machine, can run in HA with failover
+	MQ has both queue feaure (SQS) and topic features (SNS)
+
+MQ - HA: 2 AZ with an EFS
+```
+
+## Container on Aws: EC2, Fargate, ECR & EKS <a name="Containers"></a>
+
+Docker:
+```
+Docker is a software dev platform to deploy apps
+Apps are packaged in containers that can be run on any OS
+Apps run the same, regardless of where they're run:
+	Any machine
+	no compatibility issues
+	Predictable behavior
+	Less work
+Images are stored in Docker REpositories
+	Public: dockerhub
+	Private: Amazon ECR
+	Public: Amazon ECR Public
+
+Docker vs VM:
+	Resources are shared with the host OS ==> many containers on one server
+
+Docker structure:
+	Dockerfile -- Build --> Build Img -- run --> Docker container
+
+docker Containers Management:
+	3 choices:
+		ECS: Amazon's own container platform
+		Fargate: Amazon's own Serveless container platform
+		EKS: Amazon's managed Kubernetes (open source)
+```
+
+ECS
+```
+Elastic Container Service
+Launch docker container on Aws
+You must provision & maintain the infra (the Ec2 instances)
+Aws takes care of starting / stopping containers
+Has integrations with tha ALB
+
+EC2 launch type for ECS:
+	ASG with containers that contain ECS Agent and ECS Tasks
+
+IAM Roles for ECS Tasks:
+	EC2 instance profile:
+		Used by the ECS agent
+		Makes APi calls to ECS service
+		Send containers logs to CloudWatch 
+		Pull Docker image from ECR
+		Reference sensitive data in Secrets Manager os SSM Parameter Store
+
+	ECS Task Role:
+		Allow each task to have a specific role
+		Use different roles for the diff ECS Services you run
+		Task Roles is defined in the task definition
+
+ECS Data Volumes - EFS File Systems:
+	EC2 + EFS NFS
+	Fargate Tasks + EFS NFS = serverless + data storage without managing servers == Case: persistent multi-AZ shared storage for containers
+	Ability to mount EFS vol onto tasks
+	Tasks launched in any AZ will be able to share the same data in the EFS volume
+
+ECS Services & Tasks:
+	ECS Cluster (ECS container instance) --> Service A --> send taks  --> ALB
+
+Load Balancing for EC2 Launch Type:
+	We get a dynamic port mapping
+	The ALB supports finding the right port on your Ec2
+
+ECS tasks invoked by Event Bridge:
+	Automated way to run ECS Task
+
+ECS Scaling
+	Service CPU Usage:  Configure the Task into an ASG
+						Configure Cloudwatch Metric that will call a Trigger -->
+						CloudWatch Alarm --> Scales to ASG
+						If the're not ASG -- call Scale ECS Capacity Providers
+
+ECS Rolling updates:
+	When updating from v1 to v2, we can control how many tasks can be started and stopped, and in which order
+	You define the Minimum healthy percent and the maximum
+```
+
+Fargate
+```
+Launch Docker containers on Aws
+You do not provision the infra (no EC2 instances to manage) - simplier!
+Serverless offering
+Aws just runs containers for you based on the CPU/RAM you need
+
+
+Load Balancing for Fargate:
+	Each task has a unique IP in ENI(Elastic Network Interface)
+	You must allow on the ENI SG the task port from the ALB SG
+
+```
+
+ECR - Elastic Container Registry:
+```
+Store, manage and deploy containers on Aws, pay for what you use
+Fully integrated with ECS & IAM for securiity, backed by Amazon S3
+Supports image vulnerability scanning, version tag, image lifecycle
+```
+
+EKS - Elastic Kubernetes Service:
+```
+It is a way to launch a managed K8S clusters on Aws
+K8S is an open-souce system for automatic deployment, scaling and management of containerized (Docker) application
+It's an alternative to ECS, similar goal but different APi
+EKS supports EC2 if you want to deploy worker nodes or Fargate to deploy serverless containers
+Use case: if your company is already using K8S on-premises or in another cloud, and wants to migrate to Aws using K8S.
+		  K8S is cloud-afnostic(can be any cloud...)
+
+To expose one EKS = ELB
+```
+
+## Serverless <a name="Serverless"></a>
+
+What's serverless:
+```
+Serverless is a new paradigm in which the developers don't have to manage servers anymore...
+```
+
 
 ## Practice Test Tips
 
@@ -2084,3 +2423,4 @@ To prevent your API from being overwhelmed by too many requests == Amazon API Ga
 Continue to be processed even if any instance goes down, as the underlying application architecture would ensure the replacement instance has access to the required dataset == Use Instance Store based EC2 instances.
 
 Company wants to migrate 70TB de cada 10 applicações para a Aws == Order 10 Snowball Edge Storage Optimized devices to complete the one-time data transfer + Setup Site-to-Site VPN to establish connectivity between the on-premises data center and AWS Cloud.
+
