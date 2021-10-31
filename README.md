@@ -19,6 +19,7 @@ Curso feito: Udemy - Stephane Mareek
 12. [Decoupling applications:  SQS, SNS, Kinesis, Active MQ](#DeclouplingApplications)
 13. [Container on Aws: EC2, Fargate, ECR & EKS](#Containers)
 14. [Serverless](#Serverless)
+15. [Databases](#DB)
 
 
 ## IAM & Aws CLI <a name="IAM"></a>
@@ -704,7 +705,7 @@ Auto Scaling Group - ASG:
 
 RDS:
 ```
-Relational DAtabase Service
+Relational Database Service
 It's a managed DB service for DB use SQL as query language
 Can be: Postgres, MySQL, MAriaDB,Oracle,SQL server, Aurora(aws proprietary database)
 
@@ -2381,8 +2382,657 @@ To expose one EKS = ELB
 
 What's serverless:
 ```
-Serverless is a new paradigm in which the developers don't have to manage servers anymore...
+Serverless is a new paradigm in which the developers don't have to manage servers anymore.
+They just deploy code/functions.
+Initially Serverless == FaaS (Function as a Service)
+Serverless was pioneered by Aws Lambda. Does not mean there are no servers...you just don't manage /provision/ see them.
+
+Serverless in Aws: Lambda, DynamoDB
+				   Aws Cognito, API Gateway
+				   S3, SNS & SQS
+				   Kinesis Data Firehose, Aurora Serverless
+				   Step functions, Fargate
 ```
+
+Aws Lambda
+```
+Virtual functions - no servers to manage!
+Limited by time - short executions
+run on-demand
+Scaling is automated!
+
+Benefits: 
+	Pricing: Pay per request and compute time
+			 Free tier of 1 mi requests and 400K GBs of compute time
+			 $0.20 per 1 million req thereafter
+	Integrated with the whole Aws suit of services
+	Easy to minitoring throught Aws CloudWatch
+	Increasing RAM will also improve CPU and network!
+
+Languague support: Nodejs
+			       Python
+				   Java (8)
+				   C#
+				   Golang
+				   Ruby
+Lambda container image: implement the lambda runtime API --> ECS/Fargate is preferred for running Docker img
+
+Limits - per region:
+	Execution:
+		Memory allocation: 128MB - 10GB (1 mb increments)
+		Max exec time: 900 sec = 15 min
+		Environment variables (4KB)
+		Disk capacity in the "function container" (in /tmp): 512MB
+		Concurrency exec: 1000 (can be increased)
+	
+	Deployment:
+		Deployment Size: 50MB
+		Uncompressed deployment: 250MB
+		Can use the /tmp to load oher files at startup
+		Size of environment variables: 4 kb
+
+Lambda Edge:
+	You have deployed a CDN using CloudFront
+	What if you wanted to run a global Aws Lambda alongside?
+	You can use Lambda@Edge - Build more responsive app, don't manage servers, lambda is deployed globally, Customize the CSN content, pay only for what you use.
+	Do what?
+		Change CloudFront requests and responses:
+			After Cloudfront receives a req from a viewer (viewer req)
+			Before CloudFront forwards the request to the origin (origin request)
+			Origin response / Viewer response
+			You can also generate responses to viewers without ever sending the request to the origin
+	Use cases: Website Security and Privacity
+			   Dynamic Web App at the Edge 
+			   Search Engine Optimization (SEO)
+			   Intelligently Route Across Origins and Data Centers
+			   Bot mitigation at the Edge
+			   Real-time Img Transf
+			   A/B Testing
+			   User Auth and Authorization
+			   User Priotization / Tracking and Analytics
+```
+
+DynamoDB:
+```
+Fully managed, HA with replication across multiple AZ
+NoSQL DB - not a relational database
+Scales to massive workloads, distributed DB
+Millions of requests per sec, trillions of row, 100s of TG of storage
+Fast and consistent in performance (low latency on retrieval)
+Integrated with IAM for security, auth and adm
+Enables event driven programming with DynamoDB Streams
+Low cost and auto-scaling capabilities
+
+Basics:
+	made of tables
+	each table has a primary key
+	each table can have an infinite number of items (=rows)
+	each iteam gas attributes
+	Max size of an item is 400KB
+	Data types supported:
+		Scalar Type - string, number, binary, boolean, null
+		document Type - list , map
+		Set Types - String set, number set, binary set
+
+Read/Write Capacity Modes:
+	Control how you manage your table's capacity (read/write throughput)
+	2 modes:
+		Provisioned Mode (default):
+			You specify the number of r/w per sec
+			You need to plan capacity beforehand
+			Pay for privisioned Read Capacity Units(RCU) & Write Capacity Unitis (WCU)
+			Possibility to add auto-scaling mode for RCU & WCU
+		
+		On-Demand Mode:
+			Read/writes automatically scale up/down with your workloads
+			No capacity planning needed
+			Pay for what you use, more expensive ($$$$)
+			Great for unpredictable workloads
+
+DynamoDB Accelerator (DAX):
+	Fully managed, HA, seamless in-memory cache for DynamoDB
+	Help solve read congestion by caching
+	Microseconds latency for cached data
+	Doesn't require application logic modification (existing DynamoDB APIs)
+	5 min TTl for cache (default)
+
+DAX vs ElastiCache:
+	DAX: Individual objects cache
+		 Query & Scan cache
+	ElastiCache: Store Aggregation Result
+
+DynamoDB Streams:
+	Ordered stream of item-level modifications (create/update/delete) in table
+	Stream records can be:
+		Sent to Kinesis Data Streams
+		Read by Aws Lambda
+		Read by Kinesis client Library app
+	Data retention for up to 24h
+	Use cases:
+		react to changes in real-time (welcome email to users)
+		Analytics
+		Insert into derivative tables
+		Insert into ElasticSerach
+		Implement cross-region replication
+
+DynamoDB Global Tables
+	Make a  DynamoDB table accessible with low latency in multiple-regions
+	Active-Active replication
+	App can READ and WRITE to the table in any region
+	Must enable DynamoDB Streams as a Pre-req
+
+DynamoDB - Time To Live (TTL):
+	Automatically delete items after an expiry timestamp
+	Use cases: reduce stored data by keeping only current items, adhere to regulatory obligations...
+
+Dynamo Indexes:
+	Global Secondary Indexes (GSI) & Local Secondary Indexes (LSI)
+	High level: allow to query on attributes other than the Primary Key
+	With indexes, we can query by Game ID, gamte_ts, result...
+
+Dynamo Transactions:
+	possibility that a Transaction is written to both tables, or none!
+```
+
+API Gateway:
+```
+It's an Amazon's REST API 
+Aws Lambda + API Gateway: no infra to manage = full serverless
+Support for WebSocket Protocol
+Handle APi versioning(v1,v2..)
+Handle different environments (dev. teste. [prod])
+Handle security (Auth and Authorization)
+Create API Keys, handle request throttling
+Swagger / Apen API importo to quicly defines APIs
+Transform and validate requests and responses
+Generate SDK and API specifications
+Cache API responses
+
+Integrations:
+	Lambda:
+		Invoke Lambda + Easy way to expose REST API backed by Lambda
+	HTTP:
+		Expose HTTP endpoints in the backend
+		ex: internal http API on premise, ALB
+		why? add rate limiting, caching, user auth, API keys, etc...
+	Aws Service:
+		Expose any Aws API through the API gateway?
+		ex: start an Aws Step Func workflow, post a msg to SQS..
+		Why? Add auth, deploy publicly, rate control..
+
+API Gateway - Endpoints (Deploy options):
+	Edge-Optimized (default): 
+		For global clients
+		Req are routed through the Cloudfront Edge locations (improves latency)
+		The API Gat still lives in only one region
+	
+	Regional:
+		For clients within the same region
+		Could manually combine with Cloudfront (more control over the caching strategies and the distribution)
+	
+	Private:
+		Can only be accessed from your VPC using an interface VPC endpoint(ENI)
+		Use a resource policy to define access
+
+Security:
+	IAM Permissions:
+		Create an IAM policy authorization and attach to User/Role
+		API Gateway verifies IAM permissions and passed by the calling application
+		Good to provide access within your own infrastructure 
+		Leverages "Sig v4" capability where IAM credential are in headers
+		Use case: great for user/roles already within your Aws account
+				  Handle auth + authorization
+	
+	Lambda Authorizer (custom authorizers):
+		Uses Lambda to validate the token in header being passed
+		Option to cache result of auth
+		Helps to use OAuth / SAML / 3rd party 
+		Lambda must return an IAM policy for the user
+		Use case: great for 3rd party tokens
+				  very flexible in terms of what IAM policy is returned
+				  Auth + autho
+				  pay per lambda invocation
+	
+	Cognito User Pools:
+		Cognito fully manages user lifecycle
+		API gateway verifies identity automatically from Aws Cognito
+		No custom implementation required
+		Cognito only helps with authentication, not authorization
+		Use case: you manage your own user pool (can be Facebook, Google login...)
+			      no need to write any custom code
+				  must implement authorization in the backend
+```
+
+Aws Cognito:
+```
+Give our users an identity so that they can interact with our app
+
+Cognito User Pools (CUP):
+	Sign in functionality for app users
+	Integrate with API Gateway for authentication
+	Create a serverless DB of user for your mobile apps
+	Simple login: user/pass combination
+	Possibility to verify emails / phone and add MFA
+	Can enable federated Identitities(Facebook, Google, SAML...)
+	Sends back a JSON Web Token (JWT)
+
+Cognito Federated Identity Pools:
+	Provide Aws Credentials to users so they can access Aws resources directly
+	Integrate with Cognito user pools as an identitiy provider
+	How: Log in to federated identitiy provider - or remain anonymous
+		 Get temporary Aws credentials back from the Federated Identity Pool
+		 These credentials come with a pre-defined IAM policy stating their permissions
+	Ex: provide temporary access to write to S3 using Facebook login 
+
+Cognito Sync:
+	Synchronize data from device to Cognito (up to 1MB)
+	May be deprecated and replaced by AppSync
+	Store preferences, configuration, state of app
+	Cross device synch
+	Offline capability (sync when back online)
+	requires Federated Identity Pool in Cognito (not User pool)
+	up to 20 datasets to sync
+```
+
+Aws SAM - Serverless Application Model:
+```
+Framework for dev and deploying serverless app
+All the conf is YAML code:
+	Lambda, Dynamo, API Gateway, Cognito User Pools
+SAM can help you to run  locally
+SAM use CodeDeploy to deploy lambda
+```
+
+Scenarios:
+```
+	- Mobile APP:
+		The requisites:
+			- Expose as REST API with HTTPS == API Gateway
+			- Serverless architecture == invoke Lambda
+			- Users should be able to directly interact with their own folder in S3 == Auth in Cognito + get tmp cred -- S3
+			- Users should authenticate through a managed serverless service == Amazon Cognito
+			- The users can write and read to-dos, but they mostly read them
+			- The database should scale, and have some high read throughput == DAX --> DynamoDB
+		Flow:
+			Mobile  ----------------> API Gateway
+			 	|__Auth --> Cognito -- Generate temp cred
+				|__Store/retrieve files --> S3 with permissions
+		Resolution resume:
+			Serverless REST API: HTTPS, API Gateway, Lambda, DynamoDB
+			Using Cognito to generate temporary credentials with STS to access S3 bucket with restricted policy. App users can directly access Aws resources this way. Pattern can be applied to Dynamo, Lambda...
+			Caching the reads on DynamoDB using DAX
+			Caching the REST requests at the API gateway level
+			Security for auth and authorization with Cognite, STS
+	
+	- MyBlog.com - Serverless hosted website:
+		The Req:
+			- Website should scale globally = CloudFront
+			- Blogs are rarely written, but often read
+			- some of the website is purely static files, the rest is dynamic REST API
+			- Caching must be implement where possible
+			- Any new users that subscribers should receive a welcome nail - Dynamo Stream + Lambda / SNS
+			- Any photo uploaded to the blog should have a thumbnail generated
+		Serving static content, globally, securely:
+			Client --> interaction --> CloudFront
+											|__OAI: Origin Access Identity
+												|__ S3 with Bucket policy(only auth from OAI)
+		Adding a public serverless REST API:
+			Client --> REST HTTPS --> API  Gateway
+										|__ invoke --> Lambda
+														|__ Query/read -- DAX --> DynamoDB Global Tables
+																					|__ Dynamo Stream 
+																						|__ invokes Lambda
+																							|__ SDK to send email with SES
+		Thumbnail Generation flow:
+			Client --> Upload --> S3
+								  |__ OAI -- CloudFront
+								  				|__ >> Upload photos with transfer acceleration
+								  |__ trigger -- Lambda --> create thumbnail to S3
+
+		Solution Resume:
+			Static content being distributed using CloudFront with S3
+			The REST API was serverless, didn't need Cognito because public
+			Leverage a Global DynamoDB table to serve the data globally -- cloud hava used Aurora Global 
+			Enabled DynamoDB streams to trigger a lambda function -- use SES and send the welcome email
+			S3 can trigger SQS/SNS/Lambda to notify of events
+
+	- Micro Services architecture:
+		The challenge:
+			We want to switch to a micro service architecture
+			Many services interact with each other directly using a REST API
+			EACH architecture for each micro service may vary in form and shape
+			This micro-service architecture has to be a leaner development lifecycle for each service
+
+		Solutions:
+			Synchronous patterns: API Gateway, Load Balancers
+			Asynchronous patterns: SQS, Kinesis, SNS, Lambda triggers (S3)
+			Challenges with micro-services:
+				repeated overhead for creating 
+				issues with optimizing server density/utilization
+				complexity of running multiple versions of multiple microservices simultaneously
+				proliferation of client-side code requirements to integrate with many separate services
+			Some of the challenges are solved by Serverless patterns:
+				API Gateway, Lambda scale automatically and you pay per usage
+				You can easily clone API, reproduce environments
+				Generated client SDK through Swagger integration for the API gateway
+	
+	- Distributing paid content:
+		Requirements:
+			Sell videos online and users have to paid to buy videos
+			Each videos can be bought
+			we only want to distribute videos to users who are premium users = CloudFront with Signed URL
+			We have a DB of premium users = Dynamo
+			Links we send to premium users should be short lived
+			Our application is global
+			We want to be fully serverless
+		
+		Premium user service: 
+			Client --> Auth --> Cognito
+								|__ verify auth -- API Gateway --> lambda -- DynamoDB
+		
+		Solution resume: 
+			Cognito for authentication
+			DynamoDB for storing users that are premium
+			2 serverless applications:
+				Premium user registration
+				Cloudfront signed URL generator
+			Content is stored in S3 (serveless and stable)
+			Integrated with CloudFront with OAI for security (users can't bypass)
+			CloudFront can only be used SIgned URLs to prevent unauthorized users
+			S3 Signed URL? Not efficient for global access.
+
+	- Software Updates offloading:
+		Requirements:
+			An app wunning on EC2, that ditributes software updates once in a while
+			When a new software update is update is out, we get a lot of request and the content is distributed in mass over the network. It's very costly
+			We don't want to change our app, but want to optimize our costs and CPU, how can we do it?
+
+		Solution resume: CloudFront!!!
+			No changes to arch
+			will cache software update files at the edge
+			Software update files are not dynamic, they're static (never changing)
+			Our Ec2 aren't serverless
+			But CloudFront is, and will scale for us
+			Our ASG will not scale as much, and we'll save tremendously in Ec2
+			We'll also save in availability, network bandwidth cost, etc
+			Easy way to make an existing app more scalable and cheaper!
+	
+	- Big Data Ingestion Pipeline:
+		Requeriments:
+			- We want the ingestion pipeline to bew fully serverless = IoT Devices
+			- We want to collect data in real time = Kinesis DAta streams
+			- We want to transform the data = Kinesis Firehose
+			- We want to query the transformed data using SQL = Lambda trigger Amazon Athena
+			- The reports created using the queries should be in S3 = Lambda trigger Kinesis Data Firhose
+			- We want to load that data into a warehouse and create dashboards = QuickSight // Redshift (not serverless)
+		
+		Solution Resume:
+			IoT Core allows you to harvest data from IoT devices
+			Kinesis Data Stream is great for real-time data collection
+			Kinesis Firehose helps with data delivery to S3 in near realt-time(1 min)
+			Lambda can help Firehose with data transformations
+			S3 can trigger notificaitons to SQS
+			Lambda can subscribe to SQS
+			Athena is a serverless SQL service and results are stored in S3
+			The reporting bucket contains analyzed data and can be used by reporting tool such as QuickSight or Redshift
+
+```
+
+## Databases <a name="DB"></a>
+
+Choosing the Right DB:
+```
+	Questions to choose the right DB based on your architecture:
+		Read-heady, write-heacy, balanced workload?
+		Throughput needs? (taxa de transferencia)
+		Will it change, does it need to scale or fluctuate during the day?
+		How much data to store and for how long? Will it grow? Average object size? How are they accessed?
+		Data durability? Source of truth for the data?
+		Latency requirements? Concurrent users?
+		Data model? How will you query the data? Joins? Structured? Semi-structured?
+		Strong schema? More flexibility? reporting? Search? RBDMS / NoSQL?
+		Licence costs, like Oracle? Sqitch to Cloud Native DB such as Aurora?
+```
+
+DB Types:
+```
+RDBMS (SQL/OLTP): RDS
+				  Aurora - great for joins
+NoSQL DB: DynamoDB (JSON)
+		  ElastiCache (key/value pairs)
+		  Neptune (graphs) - no joins, no SQL
+Object Store: S3 - big objects
+			  Glacier - backups /archives
+Data warehouse (SQL Analytics / BI): Redshift (OLAP)
+									 Athena
+Search: elastiSearch (JSON) - free text, unstructured searches
+Graphs: Neptune - display relationships between data
+```
+
+RDS:
+```
+Managed PostgreSQL / MySQL / Oracle / SQL Server
+Must provision an EC2 instance & EBS volume type and size
+Supports for Read Replicas and MultiAZ
+Security throught IAM, Security Groups, KMS, SSL in transit
+Backup / Snapshot / Point in time restore feature
+Managed and Schedule maintenance
+Monitoring and Scheduled maintenance
+
+Use case: Store relational datasets, perform SQL queries, transctional inserts/update/delete is available
+
+RDS + Well-architect framework(5 pilars):
+	1 - Operations:
+		small downtime when failover happens, when maitenance happens, scaling in read replicas / ec2 / restore EBS implies manual intervention, application changes
+	2 - Security:
+		Aws responsible for OS security, we are responsible for setting up KMS, SG, IAM policies, authorizing users in DB, using SSL
+	3 - Reliability (confiança): MultiAZ feature, failover in case of failures
+	4 - Performance:
+		Depends on EC2 instance type, EBS volume type, ability to add Read replicas. Storage auto-scaling & manual scaling of instances
+	5 - Costs: pay per hour based on provisioned Ec2 and EBS
+
+```
+
+Aurora:
+```
+Compatible API for PostgreSQL / MySQL
+Data is held in 6 replicas, acoss 3 AZ
+Auto healing capability
+Multi AZ, Auto Scaling Read Replicas
+Read Replicas can be Global
+Aurora DB can be Global for DR or latency purposes
+Auto scaling of storage from 10GB to 128 TB
+define EC2 instance type for aurora 
+Same security / monitoring / maintenance features as RDS
+Aurora Serverless - for unpredictable / intermittent workloads
+Aurora Multi-Master - for continuous writes failover
+Use case: same as RDS, but with less maintenance, / more flexibility / more performance
+
+Aurora + Well-architect framwork:
+	1 - Operations: less operations, auto scaling store
+	2 - Security: Aws responsible for OS security, we are responsible for setting up KMS, SG, Iam policies, authorizing users in DB, using SSL
+	3 - Reliability: multi AZ, highly available, possibly more than RDS, Aurora serverless oprtion, Autora Multi-Master option
+	4 - Performance: 5x performance due to architectural optimazations. Up to 15 read replicas (only 5 for RDS)
+	5 - Costs: Pay per hour based on EC2 and storage usage. Possibly  lower costs compared to Enterprise grade DB such as Oracle.
+```
+
+ElastiCache:
+```
+Managed Redis / Memcached
+In-memory data store, sub-millisecond latency
+must provision an Ec2 type
+Support for Clustering (Redis) and MultiAZ, Read Replicas (sharding)
+Security throught IAM, SG, KMS, redis Auth
+Backup / snapshor / point in time restore feature
+Managed and schedule maintenance
+monitoring through Cloudwatch
+
+Use Case: Key/Value store, Frequent reads, less writes, cache results for DB queries, store session data for websites, cannot use SQL.
+
+ElastiCache + well-achitected framework:
+	1 - Operations: same as RDS
+	2 - Security: user with Redis Auth
+	3 - Reliability: Clustering, Multi AZ
+	4 - Performance: Sub-millisencond performance, in memory, read replicas for sharding, very popular cache oprtion
+	5 - Costs: pay per hour based on ec2 and storage usage
+
+TIP: Sub-millisencond performance == ElastiCache
+```
+
+DynamoDB:
+```
+Aws proprietary tech, managed NoSQL DB
+Serverless, provisioned capacity, auto scaling, on demand capacity 
+Can replace ElastiCache as a key/value store (storing session data for example)
+HA, Multi AZ by default, Read and Write are decoupled, DAX for read cache
+Reads can be eventually consistent or strongly consistent
+Security, auth and authorization is done through IAM
+DynamoDB Streams to integrate with Aws Lambda
+Backup / Restore feature, Global Table feature
+Monitoring through Cloudwatch
+Can only query on primary key, sort key, or indexes
+Use case: Serverless app development (small documents 100Kb), distributed serverless cache, doesn't have SQL query languague available, has transactions capability 
+
+Dynamo + well-achitected framework:
+	1 - Operations: no operations needed, auto scaling capability, serverless
+	2 - Security: full security through IAM policies, KMs encryp, SSL in flight
+	3 - Reliability: MultiAz, Backups
+	4 - Performance: single digit millisecond performance, DAX for caching reads, performance doesn't degrade if your app scales
+	5 - Costs: Pay per provisioned capacity and storage usage (no need to guess in advance any capacity - can use auto scaling) 
+```
+
+S3:
+```
+Is a key/value store for objects
+Great for big objects,not so great for small objects
+Serverless, scales infinitely, max object size is 5 TB
+Strong consistency
+Tiers: S3 Standard, S3 IA, S3 One Zone IA, Glacier for backups
+features: Verioning, encryption, cross region replication - CRR..
+Security: IAM, bucket policies, ACL
+Encryption: SSE-S3, SSE-KMS, SSE-C, SSL in transit
+Use case: static files, key value store for big files, website hosting
+
+S3 + well-achitected framework:
+	1 - Operations: no operations needed
+	2 - Security: IAM, Bucket policies, ACL, encryption (server/client), SSL
+	3 - Reliability: 99.999999 durability / 99.99 availability, Multi AZ, CRR
+	4 - Performance: scales to thousands of read / writes per second, transfer acceleration / multi=part for big files
+	5 - Costs: pay per storage usage, network cost, requests number
+```
+
+Athena:
+```
+Fully Serverless DB with SQL capabilities
+Used to query data in S3
+Pay per query
+Output results back to S3
+Secured through IAM
+Use case: one time SQL queries, serverless queries on S3, log analytics
+
+Athena + well-achitected framework:
+	1 - Operations: no operations needed, serverless
+	2 - Security: IAM + S3 Security
+	3 - Reliability: managed service, uses presto engine, hihly available
+	4 - Performance: queries sacale based on data size
+	5 - Costs: pay per query / per TB of data scanned, serverless
+```
+
+Redshift:
+```
+Is based on PostgreSQL, but it's not used for OLTP
+It's OLAP - online analytical processing - data warehousing
+10x better performance then other data warehouses, scales to PBs of data
+Columnar storage of data (intead of row based)
+Massively Parallel Query Execurtion (MPP)
+Pay as you go based on the instances privisioned
+Has a SQL interface for performing queries
+BI tools such as Quicksight or Tableau integrate with it
+Data is loaded from S3, DynamoDB, DMs...
+From 1 node to 128 nodes, up to 128 TB of space per node
+Leader node: for query planning, results aggregation
+Compute node: for performing the queries. send results to leader
+Redshift Spectrum:
+	perform queries directly against S3
+	query data that is already in S3 without loading it
+	must have a redshift cluster available to start the query
+	The query is then submitted to thousands of Redshift Spectrum nodes
+
+Backup & Restore, Sercurity VPC / IAM / KMS, Monitoring
+Redshift Enhance VPC Routing: COPY/UNLOAD goes through VPC
+
+Snapshot & DR:
+	Redshift has no Multi-AZ mode
+	Snapshots are point-in-time backups of a cluster, stored in ternally in S3
+	snapshots are incremental (only what has changed is saved)
+	You can restore a snapshot into a new cluster
+	Automated: snapshot is retained until you delete it
+	You can configure to automatically copy snapshots of a cluster to another Aws region
+
+Loading data into Redshift:
+	Aws Kinesis Data Firehose
+	S3 using copy command through Internet // VPC
+	EC2 instance - JDBC driver
+
+TIP: Analytics and data warehousing == Redshift
+Redshift + well-achitected framework:
+	1 - Operations:  like RDS
+	2 - Security: IAM, VPC, KMS, SSL
+	3 - Reliability: Auto gealing features, cross-region snapshot copy
+	4 - Performance: 2-x performance vs other data warehousing, compression
+	5 - Costs: pay per node provisioned, 1/10 of the cost vs other warehouses
+	vs Athena: faster queries / joins / aggregations thanks to indexes
+```
+
+Glue:
+```
+Managed extract, transform and load (ETL) service
+Useful to prepare and transform data for analytics
+Fully serverless service
+Glue Data catalog: catalog of datasets
+	Glue Data Crawler: writes metadata of aws services --> Data Catalog --> serve data discovery --> Athena, Redshift
+```
+
+Neptune:
+```
+Fully managed graph DB
+High relationship data
+Social networking: users friends with Users, replied to comment on post of user and likes other comments.
+Knowledge graphs (wikipedia)
+HA across 3 AZ, up to 15 read replicas
+Point-in-time recovery, continuous backup to Amazon s3
+Support for KMS encryption at rest + HTTP
+
+Neptune + well-achitected framework:
+	1 - Operations: similitar to RDS 
+	2 - Security: Iam Auth + similar to RDS
+	3 - Reliability: Multi-AZ, clustering
+	4 - Performance: best suited for graphs, clustering to improve performance
+	5 - Costs: pay per node provisioned
+
+TIP: GRAPS == Neptune
+```
+
+OpenSearch / ElasticSearch:
+```
+Opensource tech and sold as a service on Aws
+Ex.: In Dynamo, you can only find by primary key or indexes. BUT with OpenSearch, you can serach any field, even partially matches.
+It's common to use OpenSearch as a complement to another DB
+Also has some usage for BigData app
+You can provision a cluster of instances
+Built-in integrations: Kinesis Data Firehose, aws IoT, cloudWatch Logs for data ingestion
+Security through Cognito & IAM, KMs encr, SSL & VPC
+Comes with Kibana (visualization) & Logstash (log ingestion) - ELK stack
+
+TIP: search/indexing any field = OpenSearch
+OpenSearch + well-achitected framework:
+	1 - Operations: similitar to RDS
+	2 - Security: Cognito, IAM, vpc, kms, ssl
+	3 - Reliability: Multi-AZ, clustering
+	4 - Performance: based on ElasticSerach project, petabyte scale
+	5 - Costs: pay per node provisioned
+```
+
 
 
 ## Practice Test Tips
