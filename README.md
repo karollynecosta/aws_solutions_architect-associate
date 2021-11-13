@@ -3407,35 +3407,228 @@ Can be connected with on-premises with AD Connector
 
 Encryption
 ```
+SSL - Encryption in flight:
+	Data is encrypted before sending and decrypted after receiving
+	SSL certificates help with encryption (HTTPS)
+	Encryption in flight ensures no MITM can happen
+
+Server Side Encryption at rest:
+	Data is encrypted after being received by the server
+	DAta is decrypted before being sent
+	It is stored in an encrypted form thanks to a key
+	The encryption/decryption keys must be managed somewhere and the server must have access to it
+
+Client Side Encryption:
+	Data is encrypted by the client and never decrypted by the server
+	Data will be decrypted by a receiving client
+	The server should not be able to decrypt the data
+	Cloud leverage Envelope Encryption
 ```
 
-KMS
+Aws KMS - Key Management Server
 ```
+Anytime you hear "encryption" for an Aws service, it's most likely KMS
+Easy way to control access to your data, Aws manages keys for us
+Fully integrated with IAM for authorization
+Seamlessly integrated into:
+	EBS: encrypt volumes
+	S3: Server side encryption of obj
+	Redshift/RDS: encryption of data
+	SSM: Parameter Store
+You can also use CLI/SDK
+
+Types:
+	Symmetric (AWS-256 keys):
+		First offering of KMS, single encryption key that is used to Encrypt and Decrypt
+		Aws services that are integrated with KMS use Symmetric CMKs
+		Necessary for envelope encryption
+		You never get access to the Key unencrypted (must call KMS API to use)
+
+	Asymmetric (RSA & ECC key pairs):
+		Public (Encrypt) and Private Key (Decrypt) pair
+		Used for Encrypt/Decrypt, or Sign/Verify operations
+		The public key is downloadable, but you can't access the Private Key unencrypted
+		Use case: encryption outside of Aws by users who can't call the KMS API
+
+Key Management Service:
+	Able to fully manage the keys & policies:
+		Create
+		Rotation policies
+		Disable
+		Enable
+	Able to audit key usage (CloudTrail)
+	Three types of Customer Master Keys(CMK):
+		Aws Managed Service Default CMK: free
+		User Keys created in KMS: $1/month
+		User keys imported (must be 256-bit symm key): $1/month
+	+ pay for API call to KMS ($0.03 / 10000 calls)
+
+Use Cases 101:
+	Anytime you need to share sensitive information == KMS:
+		DB pass
+		Credentials to external services
+		Private Key of SSL certificates
+
+	The value in KMS is that the CMK used to encrypt data can never be retrieved by the user, and the CMK can be rotated for extra security.
+
+	Never store your secrets in plaintext!
+	Encrypted secrets can be stored in the code / environment variables
+	KMS can only help in encrypting up to 4KB of data per call
+	If data >4 KB, use envelope encryption
+
+	To give access to KMS to someone:
+		Make sure the Key policy allows the user
+		Make sure the IAM policy allows the API calls
+
+	Copying Snapshots across regions:
+		One KMs key peer Region
+		EBS encrypted with keyA ---> Reencrypted with key B in another region
+		1 - Create a snapshot, encrypted with your own CMK
+		2 - Attach a Key Policy to authorize cross-account access
+		3 - Share the encrypted snapshot
+		4 - (in target) Create a copy of the snapshot, encrypt it with a KMS key in your acc
+		5 - Create a volume from the snapshot
+
+KMS Key Policies:
+	Controll access to KMS keys, "similar" to S3 bucket policies
+	Difference: you cannot control access without them
+	Default Policy:
+		Created if you don't provide a specific policy
+		complete access to the key to the root user = entire Aws account
+		gives access to the IAM policies to the KMS key
+
+KMS Automatic Key Rotation:
+	For CMK (not Aws managed):
+		If enabled: automatic key rotation happens every 1 year
+		Previous key is kept active so you can decrypt old data
+		New key has the same CMK ID (only the backing key is changed)
+
+KMS Manual Key Rotation:
+	When you want to rotate key every 90 days, 180 days..
+	New key has a different CMK ID
+	Keep the previous key active so you can decrypt old data
+	Better to use alias in this case(to hide the change of key for the app)
+	Good solution to rotate CMK that are not eligible for automatic rotation (like asymmetric CMK)
+
+KMS Alias Updating:
+	Better to use aliases in this case (to hide the change of key for the application)
+Tenancy: Multi-Tenant
+Standard: FIPS 140-2 Level 2
+Access: Aws IAM
+Key accessibility: Aws regions
+Cryptographic Acceleration: NONE
+HA: Aws managed
+Audit: CloudTrail/Watch
 ```
 
-SSM PArameter Store
+SSM Parameter Store
 ```
+Secure storage for configuration and secrets
+Optional Seamless Encryption using KMS
+Serverless, scalable, durable, easy SDK
+version tracking of conf/secrets
+Conf management using path & IAM
+Notifications with CloudWatch Events
+Integration with Cloudformation
+
+SSM Parameter Store Hierarchy:
+	/my-dept/
+		/my-app/ -- GetParameters or GetParametersByPath
+
+	Standard = 10K
+	Advanced = 100K
+
+Parameters Policies:
+	Allow to assign a TTL to a parameter(expiration date) to force updating or deleting sensitive data such as passwd
+	Can assign multiple policies at a time
 ```
 
 Aws Secrets Manager
 ```
-can ROTATE
+Newer service, meant for storing secrets
+can force ROTATION of secrets every x days
+Automate generation of secrets on rotation(lambda)
+Integration with RDS
+Secrets are encrypted using KMS
+Mostly meant for RDS integration
+Types: Cred for RDS/Redshift/DocumentDB/API key
 ```
 
 CloudHSM:
 ```
+KMS == Aws manages the software for encryption
+HSM == Aws provisions encryption hardware
+Dedicated Hardware(HSM = Hardware Security Module)
+Your manage your own encryption keys entirely (not Aws)
+HSM device is tamper resistant, FIPS 140-2 Level 3 compliance
+Supports both symmetric and asymmetric encryption(SSL/TLS)
+No free tier available
+Must use CloudHSM Client Software
+redshift supports for DB encryption and key
+Good option to use with SSE-C encryption
+
+HA:
+	HSM clusters are spread across MultiAZ
+
+Cryptographic Acceleration: SSL/TLS + Oracle TDE Acceleration
+Access: You create users and manage their permissions
+Tenancy: Single-Tenant
+Key accessibility: Deployed and manged in a VPC
+				   Can be shared across VPC peering
+Audit: CloudTrail/Watch/MFA support
 ```
 
-Shield:
+Aws Shield:
 ```
+Standard:
+	Free service that is activated for every Aws customer
+	Provides protection from attacks sucj as SYN/UDP Floods, Reflection attacks and other layer3/4 attacks
+
+Advanced:
+	Optional DDoS mitigation service ($3K per month per Org)
+	Protect against more sophisticated attack
+	24/7 access to Aws DDoS response ream (DRP)
+	Protect against higher fees during usage spikes due to DDoS
 ```
 
-WAF - Web App Firewall
+Aws WAF - Web App Firewall
 ```
+protects your web app from commom web exploits (layer 7)
+Layer 7 is HTTP (L4 is TCP)
+Deploy on ALB, API Gateway, CloudFront
+
+Define Web ACL (Web Access Control List):
+	Rules can include: IP addresses, HTTP Headers/body, or URI strings
+	Protects from common attach - SQL injection and XSS(cross-site scripting)
+	Size constraints, geo-match (block countries)
+	Rate-based rules (to count occurrences of events) - for DDoS protection
+```
+
+Aws Firewall Manager:
+```
+Manage rules in all accounts of an Aws Organization
+Common set of security rules
+WAF rules (ALB, API Gateway, Cloudfront)
+Aws Shield Advanced (alb, clb, elastic ip, Cloudfront)
+SG for Ec2 and ENI resources in VPC
 ```
 
 GuardDuty:
 ```
+Intelligent Threat discovery to Protect Aws Account
+Uses Machine Learning algorithms, anomaly detection, 3rd party data
+One click to enable (30 days trial), no need to install softw
+
+input data includes:
+	CloudTrail Logs: unusual API calls, unauthorized deployments
+	VPC Flow Logs: unusual internal traffic, unusual IP address
+	DNS Logs: compromised EC2 instances sending encoded data within DNS queries
+
+Can setup CloudWatch Event rules to be notified in case of findings
+CloudWatch Events rules can target Aws lambda or SNS
+
+Can protect against CryptoCurrency attacks (has a dedicated "finding" for it)
+
 When a company decides to stop use GuardDuty service + delete all existing findings:
  ==> Disable the service in the general settings -
  Disabling the service will delete all remaining data, including your findings and configurations before relinquishing the service permissions and resetting the service. So, this is the correct option for our use case.
@@ -3443,16 +3636,59 @@ When a company decides to stop use GuardDuty service + delete all existing findi
 Logs supported: VPC Flow Logs, DNS logs, CloudTrail events
 ```
 
-Inspector
+Amazon Inspector - EC2 ONLY
 ```
+Automated Security Assessments for EC2 instances
+Analyze the running OS against known vuln
+Analyze against unintended network accessibility
+Inspector Agent must be installed on OS in Ec2
+
+After the assessment, you get a report with a list of vuln
+Possibility to send notifications to SNS
+
+What does Inspector evaluate?
+	Network assessments (agentless)
+	Host assessments (with agent): Commom vuln and exposures
+								   Center for Internet Security CIS Benchmarks
+								   Security Best Practicess
 ```
 
 Macie
 ```
+Is a fully managed DATA SECURITY and data privacy service that uses machine learning and patterns matching to discover and protect your sensitive data in Aws.
+Helps identify and alert you to sensitive data, sush as personally indentifiable information (PII)
 ```
 
 Shared Responsability Model
 ```
+AWS Responsability - Security OF the Cloud:
+	Protecting infrastructure that runs all the Aws services
+	Manage services like S3, Dynamo, RDS...
+
+Customer responsability - Security IN the Cloud:
+	for Ec2, customer is responsible for management of the guest OS, firewall & network conf, IAM
+	encrypting app data
+
+Shared Controls:
+	Patch management, conf management, Awareness & Training
+
+Examples:
+	RDS:
+		Aws Resp: manage the underlying Ec2, sidable SSH
+				  automated DB / Os patching
+				  Audit the underlying instance and disk & guarantee it functions
+		Your Resp: Check the ports / IP/ SG inbound rules in DB SG
+			       In-database user creation/permissions
+				   With ot without public access
+				   parameter groups or DB is config to only allow SSL
+				   DB encryption setting
+
+	S3:
+		Aws Resp: guarantee you get unlimited storage/ get encryption
+				  ensure separation of the data between diff customers
+				  ensure aws employees can't access your data
+		Your Resp: Bucket conf / policy / public setting / IAM user and roles
+				   enabling encryption
 ```
 
 
