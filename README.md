@@ -22,6 +22,8 @@ Curso feito: Udemy - Stephane Mareek
 15. [Databases](#DB)
 16. [Aws Monitoring & Audit: Cloudwatch, cloudTrail & Config](#MonitoringAudit)
 17. [Aws Security & encryption: KMS, SSM Parameter Store, CloudHSM, Shield, WAF](#AwsSecurity)
+18. [Networking - VPC](#VPC)
+18. [Disaster Recovery](#DR)
 
 
 ## IAM & Aws CLI <a name="IAM"></a>
@@ -211,6 +213,8 @@ Virtual  machines - EC2
 Storing data on virtual drives - EBS
 Distributing load across machines - ELB
 Scaling the services using ASG(auto-scaling group)
+Instance store:
+	 provides temporary block-level storage for your instance. This storage is located on disks that are physically attached to the host computer. Instance store is ideal for temporary storage of information that changes frequently, such as buffers, caches, scratch data, and other temporary content, or for data that is replicated across a fleet of instances, such as a load-balanced pool of web servers.
 ```
 
 EC2 sizing & Configuration options:
@@ -233,6 +237,17 @@ Bootstrapping = running commands when machine starts
 				executado uma vez quando a instancia inicia
 				Install updates / softwares / common files from the internet
 				run with root user
+```
+
+EC2 Lifecycle:
+```
+pending – The instance is preparing to enter the running state. An instance enters the pending state when it launches for the first time, or when it is restarted after being in the stopped state.
+running – The instance is running and ready for use.
+stopping – The instance is preparing to be stopped. Take note that you will not billed if it is preparing to stop however, you will still be billed if it is just preparing to hibernate.
+stopped – The instance is shut down and cannot be used. The instance can be restarted at any time.
+shutting-down – The instance is preparing to be terminated.
+terminated – The instance has been permanently deleted and cannot be restarted. Take note that Reserved Instances that applied to terminated instances are still billed until the end of their term according to their payment option.
+
 ```
 
 Instance Types
@@ -493,7 +508,7 @@ Volume Types:
 						Cost effective storage, low-lattency
 						Case use: system boot volumes, virtual desktops, ddevelopment and test environments
 						1  - 16 GB
-		io1 / io2 (SSD) = Highest-performancefor mission-critical low-latency or high-throughtput workloads
+		io1 / io2 (IOPS SSD) = Highest-performancefor mission-critical low-latency or high-throughtput workloads
 						  Case use: Databasesworkloads
 						  			4 Gib - 16 Tib
 									App that need more than 16K IOPS
@@ -513,7 +528,45 @@ Volume Types:
 	Characterized in Size | Throughput | IOPS (I/O Ops per Sec)
 	Only GP2/3 and io1/2 can be used as boot volume
 	CANNOT be a boot volume: Throughput Optimized HDD (st1) + Cold HDD (sc1)
+
+Resume of Types SSD x HDD:
+	SSD: small, random I/O operation
+		 can be bootable volume
+		 Best for transactional workloads
+		 Critical business app that require susttained IOPS performance
+		 Cost moderate/high
+		 General Purpose is a type of SSD that can handle small, random I/O operations.
+		 The Provisioned IOPS SSD volumes are much more suitable to meet the needs of I/O-intensive database workloads such as MongoDB, Oracle, MySQL, and many others.
+
+	HDD: large, sequential I/O operation
+		 not bootable volume
+		 Best for large streaming workloads requiring consistent, fast throughput  ar a low price
+		 Big data, data warehouse, log processing
+		 storage for large volumes of data that is infrequently accessed
+
+Here is a list of important information about EBS Volumes:
+	– When you create an EBS volume in an Availability Zone, it is automatically replicated within that zone to prevent data loss due to a failure of any single hardware component.
+
+	– After you create a volume, you can attach it to any EC2 instance in the same Availability Zone
+
+	– Amazon EBS Multi-Attach enables you to attach a single Provisioned IOPS SSD (io1) volume to multiple Nitro-based instances that are in the same Availability Zone. However, other EBS types are not supported.
+
+	– An EBS volume is off-instance storage that can persist independently from the life of an instance. You can specify not to terminate the EBS volume when you terminate the EC2 instance during instance creation.
+
+	– EBS volumes support live configuration changes while in production which means that you can modify the volume type, volume size, and IOPS capacity without service interruptions.
+
+	– Amazon EBS encryption uses 256-bit Advanced Encryption Standard algorithms (AES-256)
+
+	– EBS Volumes offer 99.999% SLA.
 ```
+
+Amazon EMR:
+```
+Is a managed cluster platform that simplifies running big data frameworks, such as Apache Hadoop and Apache Spark, on AWS to process and analyze vast amounts of data.
+By using these frameworks and related open-source projects such as Apache Hive and Apache Pig, you can process data for analytics purposes and business intelligence workloads.
+Additionally, you can use Amazon EMR to transform and move large amounts of data into and out of other AWS data stores and databases such as Amazon Simple Storage Service (Amazon S3) and Amazon DynamoDB.
+```
+
 
 EBS Snapshots:
 ```
@@ -604,6 +657,7 @@ Use case: content management we serving, data sharing, Wordpress
 		  compatible withLinux base AMI (NOT WINDOWS)
 Uses SG to control Access to EFS
 encryption at rest using KMS
+keywords = rapidly changing data
 
 Performancce & Storage Classes:
 	EFS Scale:  1K of concurrent NFS clients, 10 GB= /s throughput
@@ -622,6 +676,21 @@ EFS x EBS:
 EBS - one zone, one instance at time,
 EFS - multi-AZ, multi instances LINUX at time, share website files, more expensive, pay per use.
 ```
+
+Backup with DML:
+```
+You can use Amazon Data Lifecycle Manager (Amazon DLM) to automate the creation, retention, and deletion of snapshots taken to back up your Amazon EBS volumes. Automating snapshot management helps you to:
+
+– Protect valuable data by enforcing a regular backup schedule.
+
+– Retain backups as required by auditors or internal compliance.
+
+– Reduce storage costs by deleting outdated backups.
+
+Combined with the monitoring features of Amazon CloudWatch Events and AWS CloudTrail, Amazon DLM provides a complete backup solution for EBS volumes at no additional cost.
+```
+
+
 
 ## ELB & ASG <a name="ELB+ASG"></a>
 
@@ -702,6 +771,7 @@ Health Checks: are crucial, checa se a instances consegue receber o trafego ou n
 		Have fixed hostname
 		The ALB don't see the IP of the client directly, they are inserted in the header X-Forwarded-For
 		X-Forwarded-Port X-Forwarded-Protocol are available in the header too.
+		Enable accesslogs on the ALB to capture HTTP requests
 
 	Network LoadBalancer (v2) - 2017 - NLB:
 		Layer 4 allow to:
@@ -756,7 +826,7 @@ SSL/TLS:
 
 	Public SSl certificates are issued by CA(Comodo, GoDaddy, letsencrypt...), have an expiration date and reniewd
 	Load Balancer uses an X.509 certificate(SSL/TLS server certificate)
-	You can manage certificates using ACM(Aws Certificate Manager) or upload your own
+	You can manage certificates using ACM(Aws Certificate Manager) or upload your own. And to IAM certificate store.
 
 	HTTPS Listener: You must specify a default certificate or an list of certs to multiple domain
 					Clients can use SNI(Server Name INdication) to specify the hostname they reach
@@ -802,8 +872,14 @@ Auto Scaling Group - ASG:
 					ASG can terminate instances marked as unhealthy by an LB (and replace them automatically)
 
 	Dynamic Scaling Policies:
-		Target Tracking Scaling: easy to set-up, Ex.: average CPU stay at around 40%
-		Simple / Step Scaling: When a CloudWatch alarmis triggered (CPU>70%), then add 2 units
+		Target Tracking Scaling: easy to set-up, Increase or decrease the current capacity of the group based on a target value for a specific metric. Ex.: average CPU stay at around 40%
+								Increase or decrease the current capacity of the group based on a target value for a specific metric. This is similar to the way that your thermostat maintains the temperature of your home – you select a temperature and the thermostat does the rest.
+
+		Simple:  Increase or decrease the current capacity of the group based on a SINGLE scaling adjustment.
+
+		Step Scaling: When a CloudWatch alarmis triggered (CPU>70%), then add 2 units
+					  Increase or decrease the current capacity of the group based on a set of scaling adjustments, known as step adjustments, that vary based on the size of the alarm breach.
+
 		Schedule Actions: Anticipate ascaling basedon known usage patterns. ex.: increase the min capacity to 10 at 12pm Fridays.
 
 	Predictive Scaling:
@@ -817,10 +893,20 @@ Auto Scaling Group - ASG:
 		after scaling activity happens, you are in the cooldown period == 300 seconds
 		during the cooldown, the ASG will not launch or terminate additional ec2
 		Use a ready-to-use AMI to reduce configuration time
+		It ensures that the Auto Scaling group does not launch or terminate additional EC2 instances before the previous scaling activity takes effect.
+		Its default value is 300 seconds.
+		It is a configurable setting for your Auto Scaling group.
 
 	ASG Default Termination Policy: 1. Find the AZ which has the most number of instances
 									2. If there are multiple instances in the AZ to choose from, delete the one with the oldest launch conf
 									3. ASG tries the balance the number of instances across AZ by default.
+									1. If there are instances in multiple Availability Zones, choose the Availability Zone with the most instances and at least one instance that is not protected from scale in. If there is more than one Availability Zone with this number of instances, choose the Availability Zone with the instances that use the oldest launch configuration.
+
+									2. Determine which unprotected instances in the selected Availability Zone use the oldest launch configuration. If there is one such instance, terminate it.
+
+									3. If there are multiple instances to terminate based on the above criteria, determine which unprotected instances are closest to the next billing hour. (This helps you maximize the use of your EC2 instances and manage your Amazon EC2 usage costs.) If there is one such instance, terminate it.
+
+									4. If there is more than one unprotected instance closest to the next billing hour, choose one of these instances at random.
 
 	Lifecycle Hooks: By default as soon as instance is launched in an ASG it's in service
 				     You have the ability to perform extra  steps before the instance goes in service (pending  state) and before the instance is terminated(terminated)
@@ -850,6 +936,12 @@ Advantage of RDS vs EC2:
 		scaling capacity - vertical or horizontal
 		But you CAN'T access throught SSH
 
+IAM DB Authentication:
+	IAM database authentication provides the following benefits:
+		Network traffic to and from the database is encrypted using Secure Sockets Layer (SSL).
+		You can use IAM to centrally manage access to your database resources, instead of managing access individually on each DB instance.
+		For applications running on Amazon EC2, you can use profile credentials specific to your EC2 instance to access your database instead of a password, for greater security
+
 RDS Backups:
 	Are automaticaly enabled in RDS
 	Daily full backup of the databse
@@ -874,6 +966,7 @@ Store Auto Scaling:
 	Supports all RDS engines
 
 Read Replicas: **important**
+	Provide enhanced performance and durability for database (DB) instances.
 	Help to scale your read/write capacity
 	**Up to 5 read replicas**
 	Within AZ, Cross AZ or Cross Region
@@ -896,7 +989,8 @@ Multi AZ (Disaster Recovery):
 	No manual intervention ins apps
 	Not used for scaling
 	the Read Replicas can setup as Multi AZ for Disaster Recovery(DR)
-	DB maintenance window:
+	DB maintenance window
+	In case of failover from the first instance: simply flips the canonical name record (CNAME) for your DB instance to point at the standby, which is in turn promoted to become the new primary.
 
 How a RDS can go from Single-AZ to Multi-AZ?
 	Zero downtime operation (no need to stop)
@@ -915,6 +1009,7 @@ RDS Security - Encryption:
 						  Provide SSL options with trust certificate when cnnecting with databse
 						  To enforce SSL: PostgreSQL: rds.force_ssl=1 in the Parameter Groups;
 						  				  MySQL: Within theDB: GRANT USAGE ON *.*TO 'mysqluser'@'%' REQUIRE SSL;
+												Download the Amazon RDS Root CA certificate. Import the certificate to your servers and configure your application to use SSL to encrypt the connection to RDS.
 
 	Encryption Operations:
 		Encrypting RDS backups: Un-encrypted create a snapshots un-encrypted
@@ -1224,6 +1319,13 @@ Routing Policies:
 					 Can be associate with HC(return only healthy resources)
 					 Up to 8 health records are returned for each
 					 Is not substitute to ELB
+
+		Active-Active Failover:
+			Use this failover configuration when you want all of your resources to be available the majority of the time. When a resource becomes unavailable, Route 53 can detect that it's unhealthy and stop including it when responding to queries.
+			In active-active failover, all the records that have the same name, the same type (such as A or AAAA), and the same routing policy (such as weighted or latency) are active unless Route 53 considers them unhealthy. Route 53 can respond to a DNS query using any healthy record.
+
+		Active-Passive Failover:
+			Use an active-passive failover configuration when you want a primary resource or group of resources to be available the majority of the time and you want a secondary resource or group of resources to be on standby in case all the primary resources become unavailable. When responding to queries, Route 53 includes only the healthy primary resources. If all the primary resources are unhealthy, Route 53 begins to include only the healthy secondary resources in response to DNS queries.
 
 
 Traffic Flow: Simplify the process of creating and maintaining records in large and complex conf
@@ -1645,6 +1747,7 @@ Amazon Glacier Deep Archive:
 Glacier Seletec - tras os dados mais rapido
 
 S3 Reduced Redundancy Storage (deprecated)
+Provisioned capacity - melhora a entrega de dados no modo expedited
 ```
 
 S3 Lifecycle Rules:
@@ -1832,7 +1935,13 @@ Cloudfront Signed URL / Signed Cookies
 		Private content: for years (private to the user)
 
 	Signed URL = access to individual files (one signed URL per file)
+				 You want to use an RTMP distribution. Signed cookies aren’t supported for RTMP distributions.
+				 You want to restrict access to individual files, for example, an installation download for your application.
+				 Your users are using a client (for example, a custom HTTP client) that doesn’t support cookies.
+
 	Signed Cookies = access to multiple files (one signed coolie for many files)
+					 You want to provide access to multiple restricted files, for example, all of the files for a video in HLS format or all of the files in the subscribers’ area of a website.
+					 You don’t want to change your current URLs.
 
 CloudFront Signed URL vs S3 Pre-Signed URL:
 	Cloudfront: Allow access to a path, no matter the origin
@@ -1862,6 +1971,10 @@ CloudFront Multi-tier cache:
 
 	Bypass: Dynamic content, as determined at request time (cache-behavior configured to forward all headers)
 			Proxy methods PUT/POST/PATCH/OPTIONS/DELETE go directly to the origin
+
+The Cache-Control and Expires headers control how long objects stay in the cache.
+The Cache-Control max-age directive lets you specify how long (in seconds) you want an object to remain in the cache before CloudFront gets the object again from the origin server.
+The minimum expiration time CloudFront supports is 0 seconds for web distributions and 3600 seconds for RTMP distributions.
 ```
 
 Aws Global Accelerator:
@@ -1897,6 +2010,15 @@ Global Accelerator vs CloudFront:
 						Good fit for non-HTTP use cases, such as gaming(UDP), IoT (MQTT), or VoiceIP(voip)
 						Good for HTTP use cases that require static IP or deterministic, fast regional failover.
 ```
+
+Aws Trusted Advisor:
+```
+ Is an online tool that provides you real-time guidance to help you provision your resources following AWS best practices.
+
+ It inspects your AWS environment and makes recommendations for saving money, improving system performance and reliability, or closing security gaps.
+```
+
+
 
 ## Aws Storage Extras <a name="AdvancedStorage"></a>
 Aws Snow Family:
@@ -2210,6 +2332,16 @@ SQS FIFO Queue - primeiro a entrar, primeiro a sair:
 	Messages are processed in order by the consumer
 
 	Has to end with .fifo
+
+The ReceiveMessageWaitTimeSeconds is the queue attribute that determines whether you are using Short or Long polling. By default, its value is zero which means it is using Short polling. If it is set to a value greater than zero, then it is Long polling.
+
+SQS Long Polling:
+
+	– Long polling helps reduce your cost of using Amazon SQS by reducing the number of empty responses when there are no messages 	available to return in reply to a ReceiveMessage request sent to an Amazon SQS queue and eliminating false empty responses when messages are available in the queue but aren’t included in the response.
+
+	– Long polling reduces the number of empty responses by allowing Amazon SQS to wait until a message is available in the queue before sending a response. Unless the connection times out, the response to the ReceiveMessage request contains at least one of the available messages, up to the maximum number of messages specified in the ReceiveMessage action.
+
+	– Long polling eliminates false empty responses by querying all (rather than a limited number) of the servers. Long polling returns messages as soon any message becomes available.
 ```
 
 Amazon SNS:
@@ -2283,7 +2415,7 @@ Kinesis:
 Makes it easy to collect, process, and analyze sreaming data in real-time
 Ingest real-time data such as: App logs, Metrics, Website clickstreams, IoT telemetry...
 Types:
-	Kinesis Data Steams: capture, process and store data streams
+	Kinesis Data Streams: capture, process and store data streams
 		Producers(App, Client, SDK, KPL, Kinesis Agent) --> Send Record (partition key + DAta Blob (up to 1MB)) 1MB/sec or 1K msg/sec per shard
 		--> Kinesis Data Steams scale the shards(blocos) --> send to Consumers(Apps, Lambda, Kinesis Data Firehose, Kinesis Data Analytics) 2MB/sec per shard
 		Billing is per shard provisioned, can have as many shards as you want
@@ -2295,6 +2427,7 @@ Types:
 		Consumers:
 			Write your own: KCL, Aws SDK
 			Managed: Lambda, Kinesis DAta Firehose, Kinesis Data Analytics
+			Store results in: redshift, S3
 
 	Kinesis Data Firehose: load data streams into Aws data stores
 		Producers --> Record up to 1 MB --> Kinesis Data Firehose --> Data transformation <-->Batch writes --> Aws Destinations: S3, Redshift(copy through S3), Elastisearch
@@ -2623,6 +2756,7 @@ Read/Write Capacity Modes:
 			You need to plan capacity beforehand
 			Pay for privisioned Read Capacity Units(RCU) & Write Capacity Unitis (WCU)
 			Possibility to add auto-scaling mode for RCU & WCU
+			Encrease performance: Use partition keys with high-cardinality attributes, which have a large number of distinct values for each item.
 
 		On-Demand Mode:
 			Read/writes automatically scale up/down with your workloads
@@ -2939,7 +3073,7 @@ Choosing the Right DB:
 DB Types:
 ```
 RDBMS (SQL/OLTP): RDS
-				  Aurora - great for joins
+				  Aurora - great for joins and complex queries
 NoSQL DB: DynamoDB (JSON)
 		  ElastiCache (key/value pairs)
 		  Neptune (graphs) - no joins, no SQL
@@ -3103,6 +3237,7 @@ Redshift Spectrum:
 Backup & Restore, Sercurity VPC / IAM / KMS, Monitoring
 Redshift Enhance VPC Routing: COPY/UNLOAD goes through VPC
 
+
 Snapshot & DR:
 	Redshift has no Multi-AZ mode
 	Snapshots are point-in-time backups of a cluster, stored in ternally in S3
@@ -3110,6 +3245,7 @@ Snapshot & DR:
 	You can restore a snapshot into a new cluster
 	Automated: snapshot is retained until you delete it
 	You can configure to automatically copy snapshots of a cluster to another Aws region
+	Cross-region snapshot copy =  you need to enable this copy feature for each cluster and configure where to copy snapshots and how long to keep copied automated snapshots in the destination region. When cross-region copy is enabled for a cluster, all new manual and automatic snapshots are copied to the specified region.
 
 Loading data into Redshift:
 	Aws Kinesis Data Firehose
@@ -3265,6 +3401,14 @@ CloudWatch Events:
 		Integration: sqs, sns...
 		Orchestration: Step functions, code pipeline, codebuild
 		Maintenance: ssm, ec2 actions
+
+CloudWatch Agent:
+	to collect more system-level metrics from Amazon EC2 instances. Here’s the list of custom metrics that you can set up:
+		– Memory utilization
+		– Disk swap utilization
+		– Disk space utilization
+		– Page file utilization
+		– Log collection
 ```
 
 Amazon EventBrigde:
@@ -3601,7 +3745,7 @@ Define Web ACL (Web Access Control List):
 	Rules can include: IP addresses, HTTP Headers/body, or URI strings
 	Protects from common attach - SQL injection and XSS(cross-site scripting)
 	Size constraints, geo-match (block countries)
-	Rate-based rules (to count occurrences of events) - for DDoS protection
+	Rate-based rules (to count occurrences of events) - for DDoS protection: tracks the rate of requests for each originating IP address and triggers the rule action on IPs with rates that go over a limit. You set the limit as the number of requests per 5-minute time span. You can use this type of rule to put a temporary block on requests from an IP address that’s sending excessive requests.
 ```
 
 Aws Firewall Manager:
@@ -3692,6 +3836,465 @@ Examples:
 ```
 
 
+## Networking - VPC <a name="VPC"></a>
+
+CIDR - IPv4:
+```
+Classless Inter-Domain Routing - a method for allocaint IP addresses
+Used in Securitu Groups rules and Aws networking in general
+They help to define an IP address range:
+	xx.xx.xx.xx/32 => One IP
+	0.0.0.0/0 => All IPs
+	192.168.0.0/26 => 64 IP addresses
+
+A CIDR consists of two components:
+	Base IP:
+		represents an IP contained in the range
+	Subnet Mask:
+		Defines how many bits can change in the IP
+		ex.: /0, 0/24, 0/32
+		Can take two forms:
+			/8 == 255.0.0.0
+			/16 == 255.255.0.0
+			/24 == 255.255.255.0
+			/32 == 255.255.255.255
+		The Subnet MAsk basically allows part of the underlying IP to get additional next values from the base IP
+			/32 => allows for 1 IP - no octect can change
+			/31 => allows for 2 IP
+			/30 => allows for 4 IP
+			/29 => allows for 8 IP
+			/28 => allows for 16 IP
+			/27 => allows for 32 IP
+			/26 => allows for 64 IP
+			/25 => allows for 128 IP (2 elevado a 7)
+			/24 => allows for 256 IP (2 elevado a 8) - last octet can change
+			/16 => allows for 65.536 IP (2 elevado a 16) - last 2 octets can change
+			/0 => allows for all IP (2 elevado a 16) -- all octets can change
+		the max CIDR size in AWS is /16.
+
+Public vs Private IP (IPv4):
+	IANA established certain blocks of IPv4 addresses for the use of private and public addresses
+	PRIVATE IP can only allow certain values:
+		10.0.0.0/8 - in big networks
+		172.16.0.0/12 - Aws default VPC in that range
+		192.168.0.0/16 - home networks
+	All the rest of the IP addresses on the Internet are Public
+
+To help == https://www.ipaddressguide.com/
+```
+
+Default VPC - Virtual Private Cloud:
+```
+All new Aws accounts have a default VPC
+New EC2 instances are launched into the default VPC if no subnet is specified
+Default VPC has Internet connectivity and all EC2 inside it have public IPv4 addresses
+1 VPC -- 5 CIDR -- 1 region
+
+You can have multiple VPCs in an Aws regions: max 5 per region - soft limit
+Max. CIDR per VPC is 5, for each CIDR:
+	Min size is /28 (16 IP)
+	Max size is /16 (65536 IP)
+because VPC is private, only the Private IPv4 ranges are allowed (/8, /12, /16)
+your VPC CIDR should not overlap with your other networks (ex.:corporate)
+```
+
+VPC - Subnet (IPv4):
+```
+Aws reserves 5 IP addresses (first 4 & last 1) in each subnet
+These 5 IP are not aabilable for use and can't be assigned to an Ec2
+Ex.: CIDR block 10.0.0.0/24, then reserved IP are:
+		10.0.0.0 - Net address
+		10.0.0.1 - Reserved by Aws for the VPC router
+		10.0.0.2 - Reserved by Aws for mapping to aws-provided DNS
+		10.0.0.3 - Reserved by Aws for future use
+		10.0.0.255 - Network broadcast Address, aws does not support broadcast in VPC, therefore the address is reserved
+Exam Tip = if you need 29 IP for EC2:
+	You can't choose a subnet of size /27 (32 IP, 32-5 = 27 < 29)
+	You need to choose a subsnet size /26 (64 Ip, 65-5 = 59 > 29)
+```
+
+Internet Gateway - IGW
+```
+Allows resources in a VPC connect to the Internet (ec2)
+It scales horizontally and is highly available and redundant
+Must be created separately from a VPC
+One VPC can only be attached to one IGW and vice versa
+
+Internet Gateways on their own do not allow Internet access...Route tables must also be edited!
+ex.: Public Ec2 inside Public Subnet1  -- Route Table ---> Router ---> Internet Gateway
+```
+
+Bastion Hosts:
+```
+Ec2 Bastion Host in a Public Subnet --> SSH in EC2 in a Private Subnet
+We can use a Bastion Host to SSH into our private EC2 instances
+the bastion is in the public subnet which is then connected all other private subnets
+Bastion Host SG must be tightened (rigido)
+
+ExamTip: Make sure the bastion host only has por22 traffic from the IP address you need, not from the SG of your other EC2
+```
+
+NAT Instance - outdated
+```
+NAT = Network Address Translation
+Allow sEC2 in private subnets to connect to the Internet
+Must be lauched in a public subnet
+Must disable Ec2 settings: Source / Destination Check
+Must have elastic IP attached to it
+Route Tables must be configured to route traffic from private subnets to he NAT instance
+
+Not HA / resilient setup out of the box
+	You need to create an ASG in multi-AZ
+Internet traffic bandwidth depends on Ec2 type
+You must manage SG & rules:
+	Inbound: Allow HTTP/S coming from Private Subnets
+			 Allow SSH from your home network
+	Outbound: HTTP/S traffic to the internet
+```
+
+NAT Gateway:
+```
+Allow EC2 in private subnets to connect to the Internet
+Aws-managed NAT, higher bandwidth, HA, no administration
+Pay per hour for usage and bandwidth
+NATGW is created in specific AZ, uses an Elastic IP
+Can't be used by EC2 in the same subnet (only from other subnets)
+Requires an IGW (Private sbnet => NATGW => IGW)
+5 Gbps of bandwidth with automatic scaling up to 45 GB
+No SG to manage / required
+
+EC2 -- Private Subnet --> NAT Gateway in Public Sub --> Router --> IGW
+
+NAT Gateway with HA:
+	Is resilient within a single AZ
+	Must create multiple NAT Gateway in multiple AZ for fault-tolerance
+	There is no cross-AZ failover needed because if an AZ goes down it doesn't need NAT
+```
+
+DNS Resolution in VPC
+```
+DNS Resolution (enableDnsSupport):
+	Decides if DND resolution from Route53 Resolver server is supported for the VPC
+	True (default): it queries the Aws Provider DNS server at 169.254.169.253 or the reserved IP at the base of the VPC IPv4 network range plus two.
+
+DNS Hostnames (enableDnsHostnames):
+	By default:
+		True == default VPC
+		False == newly created VPC
+	Won't do anything unless enableDnsSupport=true
+	If true, assign public hostname to Ec2 if it has a public ipv4
+	If you use custonDNS domain names in a Private Hosted Zone in Route53, you must set both these attributes (dnssupport & dnshostname) to true
+```
+
+NACLs & SG:
+```
+NACL = stateless
+SG = stateful
+Request --> NACL inbound rules ---> Subnet SG inbound rules --> Ec2 --> SG outbound allowed(statefull) --> NACL Outbound Rules (stateless)
+
+NACL are like a firewall wich crontroll traffic from and to subnets
+One NACL per subnet, new subnets are assigned the Default NACL
+You define NACL Rules:
+	Rules have a number(1-32766), higher precedence with a lower number
+	First rule match will drive the decision
+	Ex.: if you define #100 allow 10.0.0.10/32 and #200 DENY 10.0.0.10/32, the IP will be allowed because 100 has a gigher precedence over 200. REGRA CRESCENTE, MENOR PARA O MAIOR.
+	The last rule is an * and denies a request in case of no rules match
+	Aws recommends adding rules by increment of 100...(100,200,300,400..)
+
+Newly created NACLs will deny everything
+NACL are a great way of blocking a specific IP address at the subnet level
+
+Default NACL:
+	Accepts EVERYTHING inbound/outbound with the subnets it's associated with
+	Do NOT modify the Default NACL, instead create custom NACLs.
+
+Ephemeral Ports:
+	For any two endpoints to establish a connection, they must use ports
+	Clients connect to a defined port, and expect a response on an ephemeral port
+	Different Operating Systems use different port ranges, ex.:
+		IANA & MS Windows 10 = 49152 - 65535
+		Linux Kernels = 32768 -60999
+
+NACL with Ephemeral Ports, you'll allow port in range xxx-xxxx
+Create NACL rules for each target subnets CIDR
+
+
+SG vs NACL:
+	SG: Operates at the Instance level
+		Supports allow rules only
+		Stateful: return traffic is automatically allowed
+		All rules are evaluated before deciding whether to allow traffic
+		Applies to an Ec2 when specidied by someone
+	NACL: Operates at the subnet level
+		  Supports allow rules an deny rules
+		  Stateless: return traffic must be explicitly allowed by rules (think of ephemeral ports)
+		  Rules are evaluated in order (lowest to highest) when deciding whether to allow traffic, fisrt match wins
+		  Automatically applies to all EC2 in the subnet that it's associated with
+```
+
+VPC Reachability Analyzer:
+```
+A network diagnostics tool that troubleshoots network connectivity between two endpoints in your VPC
+Ir builds a model of the network conf, then checks the reachability(acessibilidade) based on these conf (it doesn't send packets)
+When the destination is:
+	Reachable - it produces hop-by-hop details of the virtual network path
+	Not Reachable - ir identifies the blocking components (SG, NACLS, RouteTable..)
+
+Use Cases: troubleshoot connectivity issues, ensure network conf is an intended...
+```
+
+VPC Peering:
+```
+Privately connect two VPCs using Aws network
+Make them behave as if they were in the same network
+Must not have overlapping CIDRs
+VPC Peering connection is NOT transitive (must be established for each VPC that need to communicate with one another)
+You must update route tables in each VPC's subnets to ensure EC2 can communicate with each other
+
+You can create VPC Perring connection between VPCs in different Aws accounts/regions, the target account must accept the invitation
+You can reference a SG in a peered VPC (works cross acc - same region): AccountID/sg-dsdjsij
+```
+
+VPC Endpoints:
+```
+Conexão privada para os serviços da Aws, sem exposição pela internet.
+Every Aws service s publiciy exposed (public URL)
+VPC endpoints (PrivateLink) allows you to connect to Aws services using a private network instead of using the public internet
+They're redundant and scale horizontally
+They remove the need of IGW, NATGW..
+In case  of issues: Check DNS resolution in your VPC and Route Tables
+Two types:
+	Interface Endpoints: Provisions an ENI (private IP) as an entry point (must attach a SG)
+						 Supports most Aws services
+	Gateway Endpoints: Provisions a gateway(caminho) and must be aused as a target in a route table
+					   Supports both S3 and DynamoDB
+
+```
+
+VPC Flow Logs:
+```
+Capture information about IP traffic going into your interfaces:
+	VPC Flow Logs
+	Subnet Flow Logs
+	Elastic Network Interface (ENI) Flow Logs
+Helps to monitor & troubleshoot connectivity issues
+Flow logs data can go to S3 / CloudWatch logs
+Captures network information from Aws managed interfaces too: ELB, RDS, ElastiCache, Redshift, NATGW..
+
+VPC Flow Logs Syntax:
+	srcaddr & dstaddr - help identify problematic IP
+	srcport & dstport - help indentify problematic ports
+	Action - success/failure of the request due to SG/NACL
+	Can be used for analytics on usage patterns, or malicious behavior
+	Query VPC flow logs using Athena on S3 or Cloudwatch logs insights
+
+Troubleshoot SG & NACL issue:
+	look at the ACTION field
+	Incoming Request:
+		Inbound REJECT => NACL or SG
+		Inbound ACCEPT, Outbount REJECT => NACL
+	Outgoing Requests:
+		outbound REJECT => NACL or SG
+		outbound ACCEPT, inbount REJECT => NACL
+```
+
+Site-to-Site VPN:
+```
+Virtual Private Gateway (VGW):
+	VPN concentrator on the Aws side of the VPN connection
+	VGW is created and attached to the VPC from which you want to create the Site-to-site VPN connection
+	Possibility to customize the ASN (Autonomous System Number)
+
+Customer Gateway (CGW):
+	Software app or physical device on customer side of the VPN connection
+	What IP to use?
+		Public internet-routable IP address for your Customer Gateway device
+		If it's behind NAT device that's enabled for NAT traversal (NAT-T), use the public IP of the NAT device
+	Important = enable Route Propagation for the VGW in the route table that is associated with your subnets
+				if you need to ping your Ec2 from on-premises, make sure you add the ICMP protocol on the inbound of your SG
+
+VPN CloudHub:
+	Provides secure communication between multiple sites, if you have multiple VPN connections
+	Low-cost hub-and-spoke model for primary or secondary network connectivity between diff locations (VPN only)
+	It's a VPN connection so it goes over the public internet
+	To set it up, connect multiple VPN connections on the same VGW, setup dynamic routing and configure route tables
+```
+
+Direct Connect (DX):
+```
+Provides a dedicated PRIVATE connection from a remote network to your VPC
+Dedicated connection must be setup between your DC and Aws Direct Connect locations
+You need to setup a VGW on your VPC
+Access public resources(s3) and private (Ec2) on same connection
+Use cases:
+	Increase bandwidth throughput - working with large data sets - lower cost
+	More consistent network experience - applications using real-time data feeds
+	Hybrid environments
+Supports both IPv4 and IPv6
+
+If you want to setup a DIrect Connect to ONE or MORE VPC in many diff regions (same account), you must use Direct Connect Gateway.
+
+Connections Types:
+	Dedicated Connections:
+		1Gb and 10 GB capacity
+		Physical ethernet port dedicated to a customer
+		Request made to Aws first, then completed by Aws DirectConnect Partners
+
+	Hosted Connections: 50Mbs, 500Mbs, to 10 Gbs
+		Connection request are made via Direct Connect Partners
+		Capacity can be added or removed on demand
+		1,2,5,10GB available at select Aws Direct Connect Partners
+
+	EXAMTIP: If you need to transfer some data faster, then Direct Connect IS NOT A OPTION.
+			 Lead times are often longer than 1 month to establish a new connection.
+
+Encryption:
+	Data in transit is not encrypted but is private
+	Aws Direct Connect + VPN provides an IPsec-encrypted private connection
+	Good for an extra level of security, but slightly more complex to put in place.
+
+Resiliency:
+	High Resiliency for Critical Workloads = One connection at multiple locations
+	Maximum Resiliency for Critical Workloads: = using separate connections terminating on separate devices in more than one location.
+```
+
+Exposing Services in your VPC to other VPC:
+```
+Option 1: make it public
+	goes through the public www
+	tough to manage access (dificil)
+
+Option 2: VPC peering
+	Must create many peering relations
+	Opens the whole network
+
+BETTER OPTION == Aws PrivateLink(VPC Endpoint Services):
+	Most secure & scalable way to expose a service to 1000s of VPC (own or other accounts)
+	Does not require VPC peering, internet gateway, NAt, route tables....
+	Requires a network load balancer (service VPC) and ENI (Customer VPC) or GWLB
+```
+
+ClassicLink - DEPRECATEd -- used by EC2-Classic
+
+Transit Gateway:
+```
+For having transitive peering between thousands of VPC and on-premises, hub-and-spoke (star) connection.
+Regional resource, can work cross-region
+Share cross-account using Resource Access Manager (RAM)
+You can peer transit Gateway across regions
+Route Tables: limit which VPC can talk with other VPC
+Works with Direct Connect Gateway, VPN connections
+Supports IP MULTICAST
+
+Site-to-Site VPN ECMP:
+	ECMP = Equal-cost multi-path routing
+		   2 tunnels used by default
+		   Pay ger Gb
+	Routing strategy to allow to forward a packet over multiple best path
+	Use case: create multiple Site-to-site VPN connections to increase the BANDWIDTH of your connection to Aws
+
+Share Direct Connect between multiple accounts:
+	You can use RAM to share Transit Gateway with others accounts.
+```
+
+VPC - Traffic Mirroring
+```
+Allows you to capture and inpect network traffic in your VPC
+Route the traffic to security appliances that you manage
+Capture the traffic:
+	From (source) - ENI
+	To (targerts) - an ENI or a NLB
+Capture all packets or capture the packets of your interest (optionally, truncate packets)
+Source and Target can be in the same VPC or diff VPC (VPC peering)
+Use cases: content inspection, threat monitoring, troubleshooting..
+```
+
+IPV6 for VPC
+```
+IPv4 designed to provide 3.6 Billion addresses (they'll be exhausted soon)
+IPv6 is the successor of IPv4, every address is public and Internet-routable (no private range)
+Ex.: 2001:db8:3333:4444:5555:6666:7777:8888
+
+Ipv4 cannot be disabled for your VPC and subnets
+You can enable Ipv6 to operate in dual-stack mode (public)
+Your Ec2 will get at least a private internal IPv4 and a public IPv6
+They can communicate using either IPv4 or IPv6 to the internet through an Internet Gateway.
+
+IPv6 Troubleshooting:
+	IPv4 cannot be disabled for your VPC ans sub...
+	So, if you cannot launch an EC2 in your subnet:
+		It's not because it cannot acquire an IPv6 (the space is very large)
+		It's because there are no available IPv4 in your subnet!
+	Solution = Create a new IPv4 CIDR in your subnet
+
+Egress-only Internet Gateway:
+	ONLY FOR IPv6 in Private Subnet
+	Similar to a NAT gateway but for Ipv6
+	Allows instances in your VPC outbound connections over Ipv6 while preventing the internet to initiate an IPv6 connection to your instances
+	You must update the Route Tables
+	Ec2 == internet
+	internet !!! ec2
+```
+
+VPC Resume:
+```
+CIDR - IP Range
+VPC - Virtual Private Cloud => define a list of IPv4/6 CIDR
+SUbnets - tied to an AZ, we define a CIDR
+Internet Gateway - IGW - at the VPC level, provide Ipv4/6 Internet access
+RouteTables - must be edited to add routes from subnets to the IGW, VPC peering conn, VPC Endpoints..
+BastionHost - public EC2 to SSH into, that has SSh connectivity to Ec2 in private subnets
+NAT Instances - gives internet access to Ec2 in PRIVATE subnets. Old, must be setup in a public sub, disable Source / Destination check flag
+NAT Gateway - managed by Aws, provides scalable Internet access to private Ec2, IPv4 only
+Private DNS + route53 - enable DNS Resolution + DNs hostnames (VPC)
+NACL - stateless, subnet rules for inbound/outbound, don't forget Ephemeral Ports
+SG - stateful, operate at the EC2 level
+Reachability Analyzer - perform network connectivity testing between Aws resources
+VPC Peering - connect two VPC with non overlapping CIDR, non-transitive
+VPC Endpoints - provide private access to Aws services within a VPC
+VPc Flow Logs - can be setup at the VPC / Subnet / ENI Level, for CCEPT and REJECT traffic, helps identify attacks, analyze using Athena or CloudWatch logs insights
+Site-to-site VPC - setup a Customer Gateway on DC, a Virtual Private GAteway on VPC, and site-to-site VPN over public internet
+Aws VPN CloudHub - hub-and-spoke VPN model to connect your series
+Direct Connect - setup a Virtual Private Gateway on VPC, and establish a direct private connection to an Aws Direct Connect Location
+Direct Connect Gateway - setup a Direct Connect to many VPCs in different Aws regions
+Aws PrivateLink / VPC Endpoints Services: connect services privately from your service VPC to customers VPC
+										  doesn't need VPC Peering, public internet, NAt Gateway, RouteTAbles
+										  must be used with NLB & ENI
+ClassicLink - connect EC2-Classic Ec2 instances privately to your VPC
+Transit Gateway - transitive peering connections for VPC, VPN & DX
+Traffic Mirroring - copy network traffic from ENIs for futher analysis
+Egress-only Internet Gateway
+```
+
+Networking Costs in Aws per GB:
+```
+incoming traffic to EC2 = free
+PublicIp/Elastic IP = $0.02
+PrivateIp = $0.01
+Inter-region = $0.02
+
+Use Private IP instead of Public IP for good savings and better network performance
+Use same AZ for maximum savings (at the cost of HA)
+
+Minimizing egress traffic network cost:
+	Egress traffic: outbound traffic (from AWs to outside)
+	Ingress traffic: inbound traffic - from outside to Aws (typically free)
+	Try to keep as much internet traffic within Aws to minimize costs
+	Direct Connect location that are co-located in the same REgion result in lower cost for egress.
+
+S3 Data Transfer Pricing:
+	S3 ingress = free
+	S3 to internet = $0.09 per GB
+	S3 Transfer Acceleration = $0.04 to $0.08 per GB
+	S3 to CloudFront = $0.00
+	CloudFront to Internet: $0.085
+	S3 CRR: $0.02
+
+Gateway endpoint = $0.01, much more cheaper than NAT Gateway
+```
+
+## Disaster Recovery <a name="DR"></a>
+
 ## Practice Test Tips
 
 Order of the storage charges($$$) incurred for the test file on storage types:
@@ -3727,3 +4330,11 @@ Enhanced networking
 
 O que precisa ser configurado fora da VPC para que a VPN site-to-site funcione?
 R = An internet-routable IP address static of the customer gateway's external interface for the on-premises network
+
+ec2throttledException:
+Your VPC does not have sufficient subnet ENIs or subnet IPs.
+You only specified one subnet in your Lambda function configuration. That single subnet runs out of available IP addresses and there is no other subnet or Availability Zone which can handle the peak load.
+
+AWS Backup is a centralized backup service that makes it easy and cost-effective for you to backup your application data across AWS services in the AWS Cloud, helping you meet your business and regulatory backup compliance requirements. AWS Backup makes protecting your AWS storage volumes, databases, and file systems simple by providing a central place where you can configure and audit the AWS resources you want to backup, automate backup scheduling, set retention policies, and monitor all recent backup and restore activity.
+
+An AI-powered Forex trading application consumes thousands of data sets to train its machine learning model. The application’s workload requires a high-performance, parallel hot storage to process the training datasets concurrently. It also needs cost-effective cold storage to archive those datasets that yield low profit. == Use Amazon FSx For Lustre and Amazon S3 for hot and cold storage respectively.
